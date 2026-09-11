@@ -127,10 +127,9 @@
     <label>Priority: <input type="text" id="fPriority" value="0" style="width:50px"></label>
     <label>Replace: <input type="text" id="fReplace" value="0" style="width:50px"></label>
     <label>Back: <input type="text" id="fBack" value="*" style="width:50px"></label>
-    <label>Back Carrier Type (若 Max=2 自動同 Carrier Type): <input type="text" id="fBackCType" value=" " style="width:80px"></label>
     <label>Execute Time: <input type="text" id="fExecTime" value="0" style="width:50px"></label>
   </div>
-  <div class="small">BackCarrierID 欄位由 Max Carriers 設定自動決定:Max=1 → 空;Max=2 → 隨機 50% 機率帶第二個遞增 CarrierID</div>
+  <div class="small">CSV 的 BackCarrierID 與 Back Carrier Type 欄位固定留空。多 carrier 派令的所有 CarrierID 用 <code>|</code> 分隔合併到 CarrierID 欄位。</div>
   <hr class="sep">
   <div class="row">
     <label style="display:block">排除 Device (逗號分隔,支援 * 萬用字元):<br>
@@ -386,7 +385,6 @@ function doGenerate() {
     Priority: document.getElementById('fPriority').value,
     Replace: document.getElementById('fReplace').value,
     Back: document.getElementById('fBack').value,
-    BackCType: document.getElementById('fBackCType').value,
     ExecTime: document.getElementById('fExecTime').value,
   };
 
@@ -423,13 +421,12 @@ function doGenerate() {
     const cids = [];
     for (let n = 0; n < k; n++) cids.push(nextCID());
     const cidField = cids.join('|');
-    const backCType = k > 1 ? ct : (f.BackCType || ' ');
 
     parts.push([
       f.Group, time, cidField, f.LotID, f.LotNum, ct,
       p.src, p.dst,
       f.Priority, f.Replace, f.Back,
-      ' ', backCType, f.ExecTime,
+      ' ', ' ', f.ExecTime,
     ].join(','));
   }
 
@@ -563,7 +560,6 @@ function collectFullConfig() {
       fPriority: document.getElementById('fPriority').value,
       fReplace: document.getElementById('fReplace').value,
       fBack: document.getElementById('fBack').value,
-      fBackCType: document.getElementById('fBackCType').value,
       fExecTime: document.getElementById('fExecTime').value,
       excludeDevices: document.getElementById('excludeDevices').value,
       maxRows: parseInt(document.getElementById('maxRows').value) || 0,
@@ -604,7 +600,6 @@ function applyConfig(cfg) {
   setVal('fPriority', s.fPriority);
   setVal('fReplace', s.fReplace);
   setVal('fBack', s.fBack);
-  setVal('fBackCType', s.fBackCType);
   setVal('fExecTime', s.fExecTime);
   setVal('excludeDevices', s.excludeDevices);
   setVal('maxRows', s.maxRows);
