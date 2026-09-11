@@ -1,0 +1,10 @@
+{
+  "MGZ_POOL": {
+    "zones": ["zone_5F_AMR_MGZ", "zone_5F_AMR_MGZ_OVEN", "zone_5F_AMR_MGZ_WB"],
+    "carrier_types": ["MAG1"]
+  },
+  "CST_POOL": {
+    "zones": ["zone_5F_AMR_CST"],
+    "carrier_types": ["F08", "F12", "FOUP08", "FOUP12"]
+  }
+}

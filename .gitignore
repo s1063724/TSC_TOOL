@@ -1,0 +1,42 @@
+# ===== 秘密 =====
+config.ini
+*.env
+.env
+
+# ===== 產出檔 =====
+output/*.csv
+output/*.zip
+output/*.tar.gz
+!output/.gitkeep
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+venv/
+env/
+.venv/
+
+# ===== log / tmp =====
+*.log
+/tmp/*
+nohup.out
+
+# ===== OS junk =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== Backup =====
+*.bak
+*_bk*/

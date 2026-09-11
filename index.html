@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<title>Dispatch 派令產生器</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #1a1d21;
+    --bg-card: #24282e;
+    --bg-input: #2d3239;
+    --bg-chip: #1e3a5f;
+    --border: #3a4048;
+    --border-input: #4a5058;
+    --text: #d8dde3;
+    --text-dim: #8a9099;
+    --text-heading: #e8ecf1;
+    --accent: #4a9eff;
+    --accent-hover: #6bb1ff;
+    --accent-disabled: #4a5058;
+    --warn: #ff6b6b;
+    --code-bg: #12151a;
+    --code-text: #b2ccd6;
+  }
+  html, body { background: var(--bg); }
+  body { font-family: -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; width: 95%; max-width: 1800px; margin: 20px auto; padding: 0 16px; color: var(--text); }
+  h1 { font-size: 22px; color: var(--text-heading); font-weight: 600; }
+  h2 { font-size: 15px; margin-top: 0; margin-bottom: 8px; color: var(--text-heading); font-weight: 600; }
+  .card { border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin: 14px 0; background: var(--bg-card); }
+  label { font-size: 13px; display: inline-block; margin-right: 10px; }
+  input[type=text], input[type=number], select {
+    padding: 5px 8px; font-size: 13px;
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border-input); border-radius: 3px;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus {
+    outline: none; border-color: var(--accent);
+  }
+  input[type=file] { color: var(--text); }
+  input[type=file]::file-selector-button {
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border-input); border-radius: 3px;
+    padding: 5px 10px; font-size: 13px; cursor: pointer; margin-right: 8px;
+  }
+  input[type=file]::file-selector-button:hover { background: var(--border); }
+  input[type=checkbox] { accent-color: var(--accent); }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: 12px; color: var(--code-text); }
+  button { padding: 8px 16px; font-size: 14px; background: var(--accent); color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-weight: 500; }
+  button:hover:not(:disabled) { background: var(--accent-hover); }
+  button:disabled { background: var(--accent-disabled); color: var(--text-dim); cursor: not-allowed; }
+  .zone-row { display: flex; align-items: center; margin: 6px 0; flex-wrap: wrap; gap: 8px; }
+  .zone-chip { display: inline-block; background: var(--bg-chip); color: #b8d4f5; padding: 3px 10px; border-radius: 4px; font-size: 12px; min-width: 220px; }
+  .log { font-family: Menlo, Consolas, monospace; font-size: 12px; background: var(--code-bg); color: var(--code-text); padding: 10px; border-radius: 4px; max-height: 260px; overflow: auto; white-space: pre; border: 1px solid var(--border); }
+  .row { margin: 8px 0; }
+  .small { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+  .warn { color: var(--warn); }
+  hr.sep { border: 0; border-top: 1px dashed var(--border); margin: 10px 0; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-input); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<h1>Dispatch 派令產生器</h1>
+<div class="small">依 Workstation xlsx 產生 Source/Dest 兩兩配對的派令 CSV。xlsx 在瀏覽器內處理;Preset 存到後端 DB (dispatch_generator.presets)。</div>
+
+<div class="card">
+  <h2>Preset 管理</h2>
+  <div class="row">
+    <label>作者 (存/改 preset 用,自動記到瀏覽器):
+      <input type="text" id="author" placeholder="你的名字/工號" style="width:160px">
+    </label>
+  </div>
+  <div class="row">
+    <label>Preset:
+      <select id="presetSelect" style="min-width:220px">
+        <option value="">(不套用)</option>
+      </select>
+    </label>
+    <button type="button" id="loadBtn">Load</button>
+    <button type="button" id="saveBtn">Save (覆蓋當前)</button>
+    <button type="button" id="saveAsBtn">Save As...</button>
+    <button type="button" id="deleteBtn">Delete</button>
+    <button type="button" id="refreshBtn">Refresh 清單</button>
+  </div>
+  <div id="presetInfo" class="small"></div>
+</div>
+
+<div class="card">
+  <h2>Step 1. 上傳 Workstation xlsx</h2>
+  <input type="file" id="fileInput" accept=".xlsx,.xls">
+  <div id="fileInfo" class="small"></div>
+</div>
+
+<div class="card" id="poolConfig" style="display:none">
+  <h2>Step 2. Pool 分組 (同 Pool 內 device 兩兩配對)</h2>
+  <div class="small">相同 Pool 名稱的 Zone 會合併池;Carrier Type 用逗號分隔可循環套用 (例 <code>F08,F12,FOUP08,FOUP12</code>)。</div>
+  <hr class="sep">
+  <div id="poolList"></div>
+</div>
+
+<div class="card" id="ruleConfig" style="display:none">
+  <h2>Step 3. 派令規則 &amp; 欄位</h2>
+  <div class="row">
+    <label>Trigger Time: 每 <input type="number" id="rowsPerStep" value="10" style="width:60px"> 筆遞增 <input type="number" id="minStep" value="5" style="width:60px"> 分鐘</label>
+    <label><input type="checkbox" id="wrapTime" checked> 小時 mod 24 wrap (超過 24h 從 00:00 重新)</label>
+  </div>
+  <hr class="sep">
+  <div class="row">
+    <label>Group: <input type="text" id="fGroup" value="*" style="width:50px"></label>
+    <label>CarrierID: <input type="text" id="fCarrierID" value="GY001" style="width:100px"></label>
+    <label><input type="checkbox" id="fCarrierIDIncr"> 遞增 (GY001,GY002...)</label>
+    <label>Lot ID: <input type="text" id="fLotID" value=" " style="width:50px"></label>
+    <label>Lot Num: <input type="text" id="fLotNum" value="0" style="width:40px"></label>
+  </div>
+  <div class="row">
+    <label>Priority: <input type="text" id="fPriority" value="0" style="width:40px"></label>
+    <label>Replace: <input type="text" id="fReplace" value="0" style="width:40px"></label>
+    <label>Back: <input type="text" id="fBack" value="*" style="width:40px"></label>
+    <label>BackCarrierID: <input type="text" id="fBackCID" value=" " style="width:80px"></label>
+    <label>Back Carrier Type: <input type="text" id="fBackCType" value=" " style="width:80px"></label>
+    <label>Execute Time: <input type="text" id="fExecTime" value="0" style="width:40px"></label>
+  </div>
+  <hr class="sep">
+  <div class="row">
+    <label style="display:block">排除 Device (逗號分隔,支援 * 萬用字元):<br>
+      <input type="text" id="excludeDevices" value="MGZ_NG_PORT_02,MGZ_NG_PORT_03,MGZ_NG_PORT_04,CST_NG_PORT_02" style="width:100%; box-sizing:border-box">
+    </label>
+  </div>
+  <div class="row">
+    <label>Max rows (0=不限): <input type="number" id="maxRows" value="0" style="width:100px"></label>
+    <label>每個 device 最多當幾次 Source (0=不限): <input type="number" id="maxSrcTimes" value="0" style="width:60px"></label>
+    <label>輸出檔名: <input type="text" id="outName" value="dispatch.csv" style="width:180px"></label>
+  </div>
+</div>
+
+<div class="card" id="generate" style="display:none">
+  <h2>Step 4. 產生 &amp; 下載</h2>
+  <button id="genBtn">產生並下載 CSV</button>
+  <div id="stats" class="small"></div>
+  <div id="previewWrap" style="display:none">
+    <div class="small" style="margin-top:8px">預覽 (前 10 筆):</div>
+    <div id="preview" class="log"></div>
+  </div>
+</div>
+
+<script>
+let devicesByZone = {};
+let pendingPresetConfig = null;
+
+document.getElementById('fileInput').addEventListener('change', handleFile);
+document.getElementById('genBtn').addEventListener('click', generate);
+
+function isEnabledCell(v) {
+  return v === true || v === 1 || v === '1' ||
+         (typeof v === 'string' && v.trim().toUpperCase() === 'TRUE');
+}
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+
+      devicesByZone = {};
+      let totalEnabled = 0;
+      for (const r of rows) {
+        if (!isEnabledCell(r['Enabled'])) continue;
+        const did = r['Device_ID'];
+        const zid = r['Zone_ID'];
+        if (!did || !zid) continue;
+        if (!devicesByZone[zid]) devicesByZone[zid] = [];
+        devicesByZone[zid].push(String(did));
+        totalEnabled++;
+      }
+
+      const zoneCount = Object.keys(devicesByZone).length;
+      document.getElementById('fileInfo').innerHTML =
+        `讀取 <b>${rows.length}</b> 筆,Enabled=<b>${totalEnabled}</b>,分 <b>${zoneCount}</b> 個 Zone (檔案 <code>${file.name}</code>)`;
+
+      renderPoolConfig();
+      document.getElementById('poolConfig').style.display = 'block';
+      document.getElementById('ruleConfig').style.display = 'block';
+      document.getElementById('generate').style.display = 'block';
+      if (pendingPresetConfig) {
+        const cfg = pendingPresetConfig;
+        pendingPresetConfig = null;
+        applyConfig(cfg);
+        setInfo(`xlsx 已載入,並套用先前選的 preset`);
+      }
+    } catch (err) {
+      document.getElementById('fileInfo').innerHTML =
+        `<span class="warn">解析失敗:${err.message}</span>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderPoolConfig() {
+  const zones = Object.keys(devicesByZone).sort();
+  const el = document.getElementById('poolList');
+  el.innerHTML = '';
+  for (const z of zones) {
+    let poolName, carrierType;
+    if (z.includes('MGZ')) {
+      poolName = 'MGZ_POOL';
+      carrierType = 'MAG1';
+    } else if (z.includes('CST')) {
+      poolName = 'CST_POOL';
+      carrierType = 'F08,F12,FOUP08,FOUP12';
+    } else {
+      poolName = z;
+      carrierType = 'C12';
+    }
+    const row = document.createElement('div');
+    row.className = 'zone-row';
+    row.innerHTML =
+      `<span class="zone-chip">${z} (${devicesByZone[z].length})</span>` +
+      `<label>Pool: <input type="text" data-zone="${z}" data-field="pool" value="${poolName}" style="width:150px"></label>` +
+      `<label>Carrier Type: <input type="text" data-zone="${z}" data-field="ctype" value="${carrierType}" style="width:260px"></label>`;
+    el.appendChild(row);
+  }
+}
+
+function buildExcludeMatcher(text) {
+  const patterns = (text || '').split(',').map(s => s.trim()).filter(s => s);
+  if (patterns.length === 0) return () => false;
+  const regexes = patterns.map(p => {
+    const escaped = p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+    return new RegExp('^' + escaped + '$');
+  });
+  return (id) => regexes.some(r => r.test(id));
+}
+
+function collectPools(isExcluded) {
+  const pools = {};
+  for (const z of Object.keys(devicesByZone)) {
+    const poolInput = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
+    const ctypeInput = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
+    const pool = poolInput.value.trim() || z;
+    const ctypes = ctypeInput.value.split(',').map(s => s.trim()).filter(s => s);
+    if (!pools[pool]) pools[pool] = { devices: [], carrierTypes: ctypes };
+    else if (ctypes.length && pools[pool].carrierTypes.length === 0) pools[pool].carrierTypes = ctypes;
+    for (const d of devicesByZone[z]) {
+      if (!isExcluded(d)) pools[pool].devices.push(d);
+    }
+  }
+  return pools;
+}
+
+function fmtTime(idx, rowsPerStep, minStep, wrap) {
+  const totalMin = Math.floor(idx / rowsPerStep) * minStep;
+  let h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (wrap) h = h % 24;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':00';
+}
+
+function incrementCID(base, offset) {
+  const m = String(base).match(/^(.*?)(\d+)$/);
+  if (!m) return base + offset;
+  const prefix = m[1];
+  const startNum = parseInt(m[2]);
+  const width = m[2].length;
+  const next = startNum + offset;
+  return prefix + String(next).padStart(width, '0');
+}
+
+function generate() {
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.textContent = '產生中...';
+  document.getElementById('stats').textContent = '';
+
+  setTimeout(() => {
+    try {
+      doGenerate();
+    } catch (err) {
+      document.getElementById('stats').innerHTML = `<span class="warn">錯誤:${err.message}</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '產生並下載 CSV';
+    }
+  }, 30);
+}
+
+function doGenerate() {
+  const isExcluded = buildExcludeMatcher(document.getElementById('excludeDevices').value);
+  const pools = collectPools(isExcluded);
+  const rowsPerStep = Math.max(1, parseInt(document.getElementById('rowsPerStep').value) || 10);
+  const minStep = Math.max(0, parseInt(document.getElementById('minStep').value) || 5);
+  const wrap = document.getElementById('wrapTime').checked;
+  const carrierIDIncr = document.getElementById('fCarrierIDIncr').checked;
+  const maxRows = parseInt(document.getElementById('maxRows').value) || 0;
+  const maxSrcTimes = parseInt(document.getElementById('maxSrcTimes').value) || 0;
+  const outName = document.getElementById('outName').value || 'dispatch.csv';
+
+  const f = {
+    Group: document.getElementById('fGroup').value,
+    CID: document.getElementById('fCarrierID').value,
+    LotID: document.getElementById('fLotID').value,
+    LotNum: document.getElementById('fLotNum').value,
+    Priority: document.getElementById('fPriority').value,
+    Replace: document.getElementById('fReplace').value,
+    Back: document.getElementById('fBack').value,
+    BackCID: document.getElementById('fBackCID').value,
+    BackCType: document.getElementById('fBackCType').value,
+    ExecTime: document.getElementById('fExecTime').value,
+  };
+
+  const parts = ['Group,Trigger Time,CarrierID,Lot ID,Lot Num,Carrier Type,Source,Dest,Priority,Replace,Back,BackCarrierID,Back Carrier Type,Execute Time'];
+  let idx = 0;
+  let stop = false;
+
+  for (const [poolName, info] of Object.entries(pools)) {
+    if (stop) break;
+    const devices = info.devices;
+    const ctypes = info.carrierTypes;
+    if (devices.length < 2 || ctypes.length === 0) continue;
+    for (let i = 0; i < devices.length && !stop; i++) {
+      let srcCount = 0;
+      for (let j = 0; j < devices.length && !stop; j++) {
+        if (i === j) continue;
+        if (maxSrcTimes > 0 && srcCount >= maxSrcTimes) break;
+        const ct = ctypes[idx % ctypes.length];
+        const cid = carrierIDIncr ? incrementCID(f.CID, idx) : f.CID;
+        parts.push([
+          f.Group,
+          fmtTime(idx, rowsPerStep, minStep, wrap),
+          cid,
+          f.LotID,
+          f.LotNum,
+          ct,
+          devices[i],
+          devices[j],
+          f.Priority,
+          f.Replace,
+          f.Back,
+          f.BackCID,
+          f.BackCType,
+          f.ExecTime
+        ].join(','));
+        idx++;
+        srcCount++;
+        if (maxRows > 0 && idx >= maxRows) { stop = true; break; }
+      }
+    }
+  }
+
+  const csv = parts.join('\n') + '\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = outName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const sizeMB = (csv.length / 1024 / 1024).toFixed(2);
+  document.getElementById('stats').innerHTML =
+    `已產生 <b>${idx}</b> 筆,檔案 <b>${sizeMB} MB</b>,已下載 <code>${outName}</code>`;
+
+  document.getElementById('previewWrap').style.display = 'block';
+  document.getElementById('preview').textContent = parts.slice(0, 11).join('\n');
+}
+
+// ==================== Preset 管理 ====================
+const PRESET_API = '/api/presets';
+
+function setInfo(text, isError) {
+  const el = document.getElementById('presetInfo');
+  el.innerHTML = isError ? `<span class="warn">${text}</span>` : text;
+}
+
+function getAuthor() {
+  return document.getElementById('author').value.trim();
+}
+
+async function refreshPresets() {
+  try {
+    const res = await fetch(PRESET_API);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const presets = await res.json();
+    const sel = document.getElementById('presetSelect');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">(不套用)</option>';
+    for (const p of presets) {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      const ts = (p.updated_at || '').replace('T', ' ').slice(0, 19);
+      opt.textContent = `${p.name}  —  ${p.updated_by || '?'} @ ${ts}`;
+      sel.appendChild(opt);
+    }
+    if (current && [...sel.options].some(o => o.value === current)) sel.value = current;
+    setInfo(`共 ${presets.length} 個 preset`);
+  } catch (err) {
+    setInfo(`載入 preset 清單失敗: ${err.message}`, true);
+  }
+}
+
+async function loadPreset() {
+  const name = document.getElementById('presetSelect').value;
+  if (!name) { setInfo('請先在下拉選單選一個 preset', true); return; }
+  try {
+    const res = await fetch(`${PRESET_API}/${encodeURIComponent(name)}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const p = await res.json();
+    applyConfig(p.config);
+    const ts = (p.updated_at || '').replace('T', ' ').slice(0, 19);
+    setInfo(`已套用 preset "${name}" (${p.updated_by || '?'} @ ${ts})`);
+  } catch (err) {
+    setInfo(`Load 失敗: ${err.message}`, true);
+  }
+}
+
+async function savePresetAs(newName) {
+  const author = getAuthor();
+  if (!author) { setInfo('請先在最上面 Author 欄位填你的名字/工號', true); return; }
+  const name = newName || document.getElementById('presetSelect').value;
+  if (!name) { setInfo('請選一個 preset 或按 Save As 命名新的', true); return; }
+  const config = collectFullConfig();
+  try {
+    const res = await fetch(PRESET_API, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, config, updated_by: author}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || ('HTTP ' + res.status));
+    }
+    setInfo(`已儲存 preset "${name}" (by ${author})`);
+    await refreshPresets();
+    document.getElementById('presetSelect').value = name;
+  } catch (err) {
+    setInfo(`Save 失敗: ${err.message}`, true);
+  }
+}
+
+async function deletePreset() {
+  const name = document.getElementById('presetSelect').value;
+  if (!name) { setInfo('請選一個 preset 才能刪', true); return; }
+  if (!confirm(`確定要刪除 preset "${name}"?`)) return;
+  try {
+    const res = await fetch(`${PRESET_API}/${encodeURIComponent(name)}`, {method: 'DELETE'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    setInfo(`已刪除 preset "${name}"`);
+    await refreshPresets();
+  } catch (err) {
+    setInfo(`Delete 失敗: ${err.message}`, true);
+  }
+}
+
+function collectFullConfig() {
+  const config = {
+    pools_by_zone: {},
+    step3: {
+      rowsPerStep: parseInt(document.getElementById('rowsPerStep').value) || 10,
+      minStep: parseInt(document.getElementById('minStep').value) || 5,
+      wrapTime: document.getElementById('wrapTime').checked,
+      fGroup: document.getElementById('fGroup').value,
+      fCarrierID: document.getElementById('fCarrierID').value,
+      fCarrierIDIncr: document.getElementById('fCarrierIDIncr').checked,
+      fLotID: document.getElementById('fLotID').value,
+      fLotNum: document.getElementById('fLotNum').value,
+      fPriority: document.getElementById('fPriority').value,
+      fReplace: document.getElementById('fReplace').value,
+      fBack: document.getElementById('fBack').value,
+      fBackCID: document.getElementById('fBackCID').value,
+      fBackCType: document.getElementById('fBackCType').value,
+      fExecTime: document.getElementById('fExecTime').value,
+      excludeDevices: document.getElementById('excludeDevices').value,
+      maxRows: parseInt(document.getElementById('maxRows').value) || 0,
+      maxSrcTimes: parseInt(document.getElementById('maxSrcTimes').value) || 0,
+      outName: document.getElementById('outName').value,
+    },
+  };
+  const poolInputs = document.querySelectorAll('input[data-zone][data-field="pool"]');
+  for (const inp of poolInputs) {
+    const z = inp.dataset.zone;
+    const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
+    config.pools_by_zone[z] = {
+      pool: inp.value.trim(),
+      carrier_types: ctypeInp ? ctypeInp.value : '',
+    };
+  }
+  return config;
+}
+
+function applyConfig(cfg) {
+  if (!cfg) return;
+  const s = cfg.step3 || {};
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+  const setChk = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.checked = !!v; };
+  setVal('rowsPerStep', s.rowsPerStep);
+  setVal('minStep', s.minStep);
+  setChk('wrapTime', s.wrapTime);
+  setVal('fGroup', s.fGroup);
+  setVal('fCarrierID', s.fCarrierID);
+  setChk('fCarrierIDIncr', s.fCarrierIDIncr);
+  setVal('fLotID', s.fLotID);
+  setVal('fLotNum', s.fLotNum);
+  setVal('fPriority', s.fPriority);
+  setVal('fReplace', s.fReplace);
+  setVal('fBack', s.fBack);
+  setVal('fBackCID', s.fBackCID);
+  setVal('fBackCType', s.fBackCType);
+  setVal('fExecTime', s.fExecTime);
+  setVal('excludeDevices', s.excludeDevices);
+  setVal('maxRows', s.maxRows);
+  setVal('maxSrcTimes', s.maxSrcTimes);
+  setVal('outName', s.outName);
+
+  const zoneKeys = Object.keys(cfg.pools_by_zone || {});
+  const domHasZones = document.querySelectorAll('input[data-zone][data-field="pool"]').length > 0;
+  if (zoneKeys.length && domHasZones) {
+    let missing = [];
+    for (const z of zoneKeys) {
+      const p = cfg.pools_by_zone[z];
+      const poolInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
+      const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
+      if (!poolInp) { missing.push(z); continue; }
+      if (p.pool !== undefined) poolInp.value = p.pool;
+      if (p.carrier_types !== undefined) {
+        ctypeInp.value = Array.isArray(p.carrier_types) ? p.carrier_types.join(',') : p.carrier_types;
+      }
+    }
+    if (missing.length) setInfo(`套用完成,但 preset 有 ${missing.length} 個 zone 在目前 xlsx 找不到: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '...' : ''}`);
+  } else if (zoneKeys.length) {
+    pendingPresetConfig = cfg;
+    setInfo('已記住 preset,上傳 xlsx 後會自動套用');
+  }
+}
+
+// ---------- init ----------
+window.addEventListener('DOMContentLoaded', () => {
+  const authorInp = document.getElementById('author');
+  authorInp.value = localStorage.getItem('dispatchgen_author') || '';
+  authorInp.addEventListener('input', (e) => {
+    localStorage.setItem('dispatchgen_author', e.target.value.trim());
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', refreshPresets);
+  document.getElementById('loadBtn').addEventListener('click', loadPreset);
+  document.getElementById('saveBtn').addEventListener('click', () => savePresetAs());
+  document.getElementById('saveAsBtn').addEventListener('click', () => {
+    const n = prompt('新 preset 名稱 (最多 100 字):');
+    if (n && n.trim()) savePresetAs(n.trim());
+  });
+  document.getElementById('deleteBtn').addEventListener('click', deletePreset);
+
+  refreshPresets();
+});
+</script>
+
+</body>
+</html>
