@@ -105,13 +105,13 @@
 <div class="card" id="ruleConfig" style="display:none">
   <h2>Step 3. 派令規則 &amp; 欄位</h2>
   <div class="row">
-    <label>Mode:
-      <select id="mode">
-        <option value="simple">Simple  (A→B)</option>
-        <option value="swap">Swap  (A→B, B→A 相鄰)</option>
-        <option value="chain">Chain  (A→B, B→C 相鄰)</option>
-      </select>
-    </label>
+    <label>模式混合機率 (%):</label>
+    <label>Simple (A→B): <input type="number" id="wSimple" value="20" min="0" max="100" style="width:70px"></label>
+    <label>Swap (A→B,B→A): <input type="number" id="wSwap" value="50" min="0" max="100" style="width:70px"></label>
+    <label>Chain (A→B,B→C): <input type="number" id="wChain" value="30" min="0" max="100" style="width:70px"></label>
+    <span class="small" style="margin-left:8px">會自動歸一化,不需剛好加到 100</span>
+  </div>
+  <div class="row">
     <label>每批筆數: <input type="number" id="batchSize" value="10" min="1" style="width:70px"></label>
     <label>批間隔 (分): 隨機 <input type="number" id="minInterval" value="2" min="0" style="width:60px"> ~ <input type="number" id="maxInterval" value="5" min="0" style="width:60px"></label>
     <label><input type="checkbox" id="wrapTime" checked> 小時 mod 24 wrap</label>
@@ -240,10 +240,7 @@ function renderPoolConfig() {
       `<span class="zone-chip">${z} (${devicesByZone[z].length})</span>` +
       `<label>Pool: <input type="text" data-zone="${z}" data-field="pool" value="${poolName}" style="width:170px"></label>` +
       `<label>Carrier Type: <input type="text" data-zone="${z}" data-field="ctype" value="${carrierType}" style="width:300px"></label>` +
-      `<label>Max Carriers: <select data-zone="${z}" data-field="maxcarriers">` +
-        `<option value="1"${maxCarriers === 1 ? ' selected' : ''}>1</option>` +
-        `<option value="2"${maxCarriers === 2 ? ' selected' : ''}>2 (隨機 1 或 2)</option>` +
-      `</select></label>`;
+      `<label>Max Carriers: <input type="number" data-zone="${z}" data-field="maxcarriers" value="${maxCarriers}" min="1" style="width:70px"></label>`;
     el.appendChild(row);
   }
 }
@@ -264,7 +261,7 @@ function collectPools(isExcluded) {
   for (const z of Object.keys(devicesByZone)) {
     const poolInput = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
     const ctypeInput = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
-    const mcInput = document.querySelector(`select[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
+    const mcInput = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
     const pool = poolInput.value.trim() || z;
     const ctypes = ctypeInput.value.split(',').map(s => s.trim()).filter(s => s);
     const maxCarriers = mcInput ? parseInt(mcInput.value) || 1 : 1;
@@ -290,46 +287,46 @@ function randInt(min, max) {
   return min + Math.floor(Math.random() * (max - min + 1));
 }
 
-function buildDispatchPairs(pools, mode, maxSrcTimes) {
+function buildDispatchPairs(pools, weights, maxSrcTimes) {
+  const total = weights.simple + weights.swap + weights.chain;
+  if (total <= 0) return [];
+  const thSimple = weights.simple / total;
+  const thSwap = (weights.simple + weights.swap) / total;
+
   const out = [];
+  const modeCount = { simple: 0, swap: 0, chain: 0 };
   for (const [poolName, info] of Object.entries(pools)) {
     const devices = info.devices;
     if (devices.length < 2) continue;
-    if (mode === 'simple') {
-      for (let i = 0; i < devices.length; i++) {
-        let srcCount = 0;
-        for (let j = 0; j < devices.length; j++) {
-          if (i === j) continue;
-          if (maxSrcTimes > 0 && srcCount >= maxSrcTimes) break;
-          out.push({ src: devices[i], dst: devices[j], pool: poolName });
-          srcCount++;
-        }
-      }
-    } else if (mode === 'swap') {
-      for (let i = 0; i < devices.length; i++) {
-        let srcCount = 0;
-        for (let j = i + 1; j < devices.length; j++) {
-          if (maxSrcTimes > 0 && srcCount >= maxSrcTimes) break;
-          out.push({ src: devices[i], dst: devices[j], pool: poolName });
-          out.push({ src: devices[j], dst: devices[i], pool: poolName });
-          srcCount++;
-        }
-      }
-    } else if (mode === 'chain') {
-      for (let i = 0; i < devices.length; i++) {
-        let srcCount = 0;
-        for (let j = 0; j < devices.length; j++) {
-          if (i === j) continue;
-          if (maxSrcTimes > 0 && srcCount >= maxSrcTimes) break;
+    for (let i = 0; i < devices.length; i++) {
+      let srcCount = 0;
+      for (let j = 0; j < devices.length; j++) {
+        if (i === j) continue;
+        if (maxSrcTimes > 0 && srcCount >= maxSrcTimes) break;
+        const r = Math.random();
+        if (r < thSimple) {
+          out.push({ src: devices[i], dst: devices[j], pool: poolName, mode: 'simple' });
+          modeCount.simple++;
+        } else if (r < thSwap) {
+          out.push({ src: devices[i], dst: devices[j], pool: poolName, mode: 'swap' });
+          out.push({ src: devices[j], dst: devices[i], pool: poolName, mode: 'swap' });
+          modeCount.swap++;
+        } else if (devices.length >= 3) {
           let k;
           do { k = Math.floor(Math.random() * devices.length); } while (k === i || k === j);
-          out.push({ src: devices[i], dst: devices[j], pool: poolName });
-          out.push({ src: devices[j], dst: devices[k], pool: poolName });
-          srcCount++;
+          out.push({ src: devices[i], dst: devices[j], pool: poolName, mode: 'chain' });
+          out.push({ src: devices[j], dst: devices[k], pool: poolName, mode: 'chain' });
+          modeCount.chain++;
+        } else {
+          // fallback to simple if pool too small for chain
+          out.push({ src: devices[i], dst: devices[j], pool: poolName, mode: 'simple' });
+          modeCount.simple++;
         }
+        srcCount++;
       }
     }
   }
+  out._modeCount = modeCount;
   return out;
 }
 
@@ -364,7 +361,14 @@ function generate() {
 function doGenerate() {
   const isExcluded = buildExcludeMatcher(document.getElementById('excludeDevices').value);
   const { pools, deviceMaxCarriers } = collectPools(isExcluded);
-  const mode = document.getElementById('mode').value;
+  const weights = {
+    simple: Math.max(0, parseInt(document.getElementById('wSimple').value) || 0),
+    swap:   Math.max(0, parseInt(document.getElementById('wSwap').value)   || 0),
+    chain:  Math.max(0, parseInt(document.getElementById('wChain').value)  || 0),
+  };
+  if (weights.simple + weights.swap + weights.chain === 0) {
+    throw new Error('三個 mode 權重都是 0,至少要有一個 > 0');
+  }
   const batchSize = Math.max(1, parseInt(document.getElementById('batchSize').value) || 10);
   const minInterval = Math.max(0, parseInt(document.getElementById('minInterval').value) || 2);
   const maxIntervalRaw = parseInt(document.getElementById('maxInterval').value);
@@ -386,7 +390,8 @@ function doGenerate() {
     ExecTime: document.getElementById('fExecTime').value,
   };
 
-  const dispatchPairs = buildDispatchPairs(pools, mode, maxSrcTimes);
+  const dispatchPairs = buildDispatchPairs(pools, weights, maxSrcTimes);
+  const modeCount = dispatchPairs._modeCount || { simple: 0, swap: 0, chain: 0 };
   const finalPairs = maxRows > 0 ? dispatchPairs.slice(0, maxRows) : dispatchPairs;
   const totalRows = finalPairs.length;
   const numBatches = Math.ceil(totalRows / batchSize);
@@ -404,7 +409,7 @@ function doGenerate() {
   };
 
   const parts = ['Group,Trigger Time,CarrierID,Lot ID,Lot Num,Carrier Type,Source,Dest,Priority,Replace,Back,BackCarrierID,Back Carrier Type,Execute Time'];
-  let dualCarrierCount = 0;
+  const multiCounts = {}; // {K: count} — how many dispatches had K carriers
   for (let idx = 0; idx < totalRows; idx++) {
     const p = finalPairs[idx];
     const info = pools[p.pool];
@@ -412,23 +417,19 @@ function doGenerate() {
     const ct = ctypes[idx % ctypes.length];
     const time = fmtTimeFromMinutes(cumTimes[Math.floor(idx / batchSize)], wrap);
 
-    const srcMax = deviceMaxCarriers[p.src] || 1;
-    const useDual = srcMax >= 2 && Math.random() < 0.5;
-    const cid = nextCID();
-    let backCID = ' ', backCType = ' ';
-    if (useDual) {
-      backCID = nextCID();
-      backCType = ct;
-      dualCarrierCount++;
-    } else if (f.BackCType && f.BackCType.trim()) {
-      backCType = f.BackCType;
-    }
+    const srcMax = Math.max(1, deviceMaxCarriers[p.src] || 1);
+    const k = randInt(1, srcMax);
+    multiCounts[k] = (multiCounts[k] || 0) + 1;
+    const cids = [];
+    for (let n = 0; n < k; n++) cids.push(nextCID());
+    const cidField = cids.join('|');
+    const backCType = k > 1 ? ct : (f.BackCType || ' ');
 
     parts.push([
-      f.Group, time, cid, f.LotID, f.LotNum, ct,
+      f.Group, time, cidField, f.LotID, f.LotNum, ct,
       p.src, p.dst,
       f.Priority, f.Replace, f.Back,
-      backCID, backCType, f.ExecTime,
+      ' ', backCType, f.ExecTime,
     ].join(','));
   }
 
@@ -444,8 +445,13 @@ function doGenerate() {
   URL.revokeObjectURL(url);
 
   const sizeMB = (csv.length / 1024 / 1024).toFixed(2);
+  const modePct = (n) => totalRows ? ((n * 100) / (modeCount.simple + modeCount.swap + modeCount.chain)).toFixed(0) + '%' : '0%';
+  const multiSummary = Object.keys(multiCounts).sort((a, b) => a - b)
+    .map(k => `${k} carrier×${multiCounts[k]}`).join(', ');
   document.getElementById('stats').innerHTML =
-    `已產生 <b>${totalRows}</b> 筆 (mode=<b>${mode}</b>, 共 ${numBatches} 批, 雙 carrier ${dualCarrierCount} 筆),` +
+    `已產生 <b>${totalRows}</b> 筆 / ${numBatches} 批。` +
+    `Mode: Simple ${modeCount.simple}(${modePct(modeCount.simple)}), Swap ${modeCount.swap}(${modePct(modeCount.swap)}), Chain ${modeCount.chain}(${modePct(modeCount.chain)})。` +
+    `Carriers 分布: ${multiSummary}。` +
     `檔案 <b>${sizeMB} MB</b>,已下載 <code>${outName}</code>`;
 
   document.getElementById('previewWrap').style.display = 'block';
@@ -543,7 +549,9 @@ function collectFullConfig() {
   const config = {
     pools_by_zone: {},
     step3: {
-      mode: document.getElementById('mode').value,
+      wSimple: parseInt(document.getElementById('wSimple').value) || 0,
+      wSwap: parseInt(document.getElementById('wSwap').value) || 0,
+      wChain: parseInt(document.getElementById('wChain').value) || 0,
       batchSize: parseInt(document.getElementById('batchSize').value) || 10,
       minInterval: parseInt(document.getElementById('minInterval').value) || 2,
       maxInterval: parseInt(document.getElementById('maxInterval').value) || 5,
@@ -567,11 +575,11 @@ function collectFullConfig() {
   for (const inp of poolInputs) {
     const z = inp.dataset.zone;
     const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
-    const mcInp = document.querySelector(`select[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
+    const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
     config.pools_by_zone[z] = {
       pool: inp.value.trim(),
       carrier_types: ctypeInp ? ctypeInp.value : '',
-      max_carriers: mcInp ? parseInt(mcInp.value) || 1 : 1,
+      max_carriers: mcInp ? Math.max(1, parseInt(mcInp.value) || 1) : 1,
     };
   }
   return config;
@@ -582,7 +590,9 @@ function applyConfig(cfg) {
   const s = cfg.step3 || {};
   const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
   const setChk = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.checked = !!v; };
-  setVal('mode', s.mode);
+  setVal('wSimple', s.wSimple);
+  setVal('wSwap', s.wSwap);
+  setVal('wChain', s.wChain);
   setVal('batchSize', s.batchSize);
   setVal('minInterval', s.minInterval);
   setVal('maxInterval', s.maxInterval);
@@ -609,7 +619,7 @@ function applyConfig(cfg) {
       const p = cfg.pools_by_zone[z];
       const poolInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
       const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
-      const mcInp = document.querySelector(`select[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
+      const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
       if (!poolInp) { missing.push(z); continue; }
       if (p.pool !== undefined) poolInp.value = p.pool;
       if (p.carrier_types !== undefined) {
