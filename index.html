@@ -65,29 +65,7 @@
 <body>
 
 <h1>Dispatch 派令產生器</h1>
-<div class="small">依 Workstation xlsx 產生 Source/Dest 兩兩配對的派令 CSV。xlsx 在瀏覽器內處理;Preset 存到後端 DB (dispatch_generator.presets)。</div>
-
-<div class="card">
-  <h2>Preset 管理</h2>
-  <div class="row">
-    <label>作者 (存/改 preset 用,自動記到瀏覽器):
-      <input type="text" id="author" placeholder="你的名字/工號" style="width:160px">
-    </label>
-  </div>
-  <div class="row">
-    <label>Preset:
-      <select id="presetSelect" style="min-width:220px">
-        <option value="">(不套用)</option>
-      </select>
-    </label>
-    <button type="button" id="loadBtn">Load</button>
-    <button type="button" id="saveBtn">Save (覆蓋當前)</button>
-    <button type="button" id="saveAsBtn">Save As...</button>
-    <button type="button" id="deleteBtn">Delete</button>
-    <button type="button" id="refreshBtn">Refresh 清單</button>
-  </div>
-  <div id="presetInfo" class="small"></div>
-</div>
+<div class="small">依 Workstation xlsx 產生 Source/Dest 兩兩配對的派令 CSV。所有處理都在瀏覽器內完成。</div>
 
 <div class="card">
   <h2>Step 1. 上傳 Workstation xlsx</h2>
@@ -161,7 +139,6 @@
 
 <script>
 let devicesByZone = {};
-let pendingPresetConfig = null;
 
 document.getElementById('fileInput').addEventListener('change', handleFile);
 document.getElementById('genBtn').addEventListener('click', generate);
@@ -202,12 +179,6 @@ function handleFile(e) {
       document.getElementById('poolConfig').style.display = 'block';
       document.getElementById('ruleConfig').style.display = 'block';
       document.getElementById('generate').style.display = 'block';
-      if (pendingPresetConfig) {
-        const cfg = pendingPresetConfig;
-        pendingPresetConfig = null;
-        applyConfig(cfg);
-        setInfo(`xlsx 已載入,並套用先前選的 preset`);
-      }
     } catch (err) {
       document.getElementById('fileInfo').innerHTML =
         `<span class="warn">解析失敗:${err.message}</span>`;
@@ -461,180 +432,6 @@ function doGenerate() {
   document.getElementById('preview').textContent = parts.slice(0, 15).join('\n');
 }
 
-// ==================== Preset 管理 ====================
-const PRESET_API = '/api/presets';
-
-function setInfo(text, isError) {
-  const el = document.getElementById('presetInfo');
-  el.innerHTML = isError ? `<span class="warn">${text}</span>` : text;
-}
-
-function getAuthor() {
-  return document.getElementById('author').value.trim();
-}
-
-async function refreshPresets() {
-  try {
-    const res = await fetch(PRESET_API);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const presets = await res.json();
-    const sel = document.getElementById('presetSelect');
-    const current = sel.value;
-    sel.innerHTML = '<option value="">(不套用)</option>';
-    for (const p of presets) {
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      const ts = (p.updated_at || '').replace('T', ' ').slice(0, 19);
-      opt.textContent = `${p.name}  —  ${p.updated_by || '?'} @ ${ts}`;
-      sel.appendChild(opt);
-    }
-    if (current && [...sel.options].some(o => o.value === current)) sel.value = current;
-    setInfo(`共 ${presets.length} 個 preset`);
-  } catch (err) {
-    setInfo(`載入 preset 清單失敗: ${err.message}`, true);
-  }
-}
-
-async function loadPreset() {
-  const name = document.getElementById('presetSelect').value;
-  if (!name) { setInfo('請先在下拉選單選一個 preset', true); return; }
-  try {
-    const res = await fetch(`${PRESET_API}/${encodeURIComponent(name)}`);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const p = await res.json();
-    applyConfig(p.config);
-    const ts = (p.updated_at || '').replace('T', ' ').slice(0, 19);
-    setInfo(`已套用 preset "${name}" (${p.updated_by || '?'} @ ${ts})`);
-  } catch (err) {
-    setInfo(`Load 失敗: ${err.message}`, true);
-  }
-}
-
-async function savePresetAs(newName) {
-  const author = getAuthor();
-  if (!author) { setInfo('請先在最上面 Author 欄位填你的名字/工號', true); return; }
-  const name = newName || document.getElementById('presetSelect').value;
-  if (!name) { setInfo('請選一個 preset 或按 Save As 命名新的', true); return; }
-  const config = collectFullConfig();
-  try {
-    const res = await fetch(PRESET_API, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name, config, updated_by: author}),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || ('HTTP ' + res.status));
-    }
-    setInfo(`已儲存 preset "${name}" (by ${author})`);
-    await refreshPresets();
-    document.getElementById('presetSelect').value = name;
-  } catch (err) {
-    setInfo(`Save 失敗: ${err.message}`, true);
-  }
-}
-
-async function deletePreset() {
-  const name = document.getElementById('presetSelect').value;
-  if (!name) { setInfo('請選一個 preset 才能刪', true); return; }
-  if (!confirm(`確定要刪除 preset "${name}"?`)) return;
-  try {
-    const res = await fetch(`${PRESET_API}/${encodeURIComponent(name)}`, {method: 'DELETE'});
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    setInfo(`已刪除 preset "${name}"`);
-    await refreshPresets();
-  } catch (err) {
-    setInfo(`Delete 失敗: ${err.message}`, true);
-  }
-}
-
-function collectFullConfig() {
-  const config = {
-    pools_by_zone: {},
-    step3: {
-      wSimple: parseInt(document.getElementById('wSimple').value) || 0,
-      wSwap: parseInt(document.getElementById('wSwap').value) || 0,
-      wChain: parseInt(document.getElementById('wChain').value) || 0,
-      batchSize: parseInt(document.getElementById('batchSize').value) || 10,
-      minInterval: parseInt(document.getElementById('minInterval').value) || 2,
-      maxInterval: parseInt(document.getElementById('maxInterval').value) || 5,
-      wrapTime: document.getElementById('wrapTime').checked,
-      fGroup: document.getElementById('fGroup').value,
-      fCarrierID: document.getElementById('fCarrierID').value,
-      fLotID: document.getElementById('fLotID').value,
-      fLotNum: document.getElementById('fLotNum').value,
-      fPriority: document.getElementById('fPriority').value,
-      fReplace: document.getElementById('fReplace').value,
-      fBack: document.getElementById('fBack').value,
-      fExecTime: document.getElementById('fExecTime').value,
-      excludeDevices: document.getElementById('excludeDevices').value,
-      maxRows: parseInt(document.getElementById('maxRows').value) || 0,
-      maxSrcTimes: parseInt(document.getElementById('maxSrcTimes').value) || 0,
-      outName: document.getElementById('outName').value,
-    },
-  };
-  const poolInputs = document.querySelectorAll('input[data-zone][data-field="pool"]');
-  for (const inp of poolInputs) {
-    const z = inp.dataset.zone;
-    const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
-    const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
-    config.pools_by_zone[z] = {
-      pool: inp.value.trim(),
-      carrier_types: ctypeInp ? ctypeInp.value : '',
-      max_carriers: mcInp ? Math.max(1, parseInt(mcInp.value) || 1) : 1,
-    };
-  }
-  return config;
-}
-
-function applyConfig(cfg) {
-  if (!cfg) return;
-  const s = cfg.step3 || {};
-  const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
-  const setChk = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.checked = !!v; };
-  setVal('wSimple', s.wSimple);
-  setVal('wSwap', s.wSwap);
-  setVal('wChain', s.wChain);
-  setVal('batchSize', s.batchSize);
-  setVal('minInterval', s.minInterval);
-  setVal('maxInterval', s.maxInterval);
-  setChk('wrapTime', s.wrapTime);
-  setVal('fGroup', s.fGroup);
-  setVal('fCarrierID', s.fCarrierID);
-  setVal('fLotID', s.fLotID);
-  setVal('fLotNum', s.fLotNum);
-  setVal('fPriority', s.fPriority);
-  setVal('fReplace', s.fReplace);
-  setVal('fBack', s.fBack);
-  setVal('fExecTime', s.fExecTime);
-  setVal('excludeDevices', s.excludeDevices);
-  setVal('maxRows', s.maxRows);
-  setVal('maxSrcTimes', s.maxSrcTimes);
-  setVal('outName', s.outName);
-
-  const zoneKeys = Object.keys(cfg.pools_by_zone || {});
-  const domHasZones = document.querySelectorAll('input[data-zone][data-field="pool"]').length > 0;
-  if (zoneKeys.length && domHasZones) {
-    let missing = [];
-    for (const z of zoneKeys) {
-      const p = cfg.pools_by_zone[z];
-      const poolInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
-      const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
-      const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
-      if (!poolInp) { missing.push(z); continue; }
-      if (p.pool !== undefined) poolInp.value = p.pool;
-      if (p.carrier_types !== undefined) {
-        ctypeInp.value = Array.isArray(p.carrier_types) ? p.carrier_types.join(',') : p.carrier_types;
-      }
-      if (mcInp && p.max_carriers !== undefined) mcInp.value = String(p.max_carriers);
-    }
-    if (missing.length) setInfo(`套用完成,但 preset 有 ${missing.length} 個 zone 在目前 xlsx 找不到: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '...' : ''}`);
-  } else if (zoneKeys.length) {
-    pendingPresetConfig = cfg;
-    setInfo('已記住 preset,上傳 xlsx 後會自動套用');
-  }
-}
-
 // ==================== Step 2 CSV Export / Import ====================
 function setPoolCSVInfo(text, isError) {
   const el = document.getElementById('poolCSVInfo');
@@ -714,21 +511,6 @@ function importPoolCSV(file) {
 
 // ---------- init ----------
 window.addEventListener('DOMContentLoaded', () => {
-  const authorInp = document.getElementById('author');
-  authorInp.value = localStorage.getItem('dispatchgen_author') || '';
-  authorInp.addEventListener('input', (e) => {
-    localStorage.setItem('dispatchgen_author', e.target.value.trim());
-  });
-
-  document.getElementById('refreshBtn').addEventListener('click', refreshPresets);
-  document.getElementById('loadBtn').addEventListener('click', loadPreset);
-  document.getElementById('saveBtn').addEventListener('click', () => savePresetAs());
-  document.getElementById('saveAsBtn').addEventListener('click', () => {
-    const n = prompt('新 preset 名稱 (最多 100 字):');
-    if (n && n.trim()) savePresetAs(n.trim());
-  });
-  document.getElementById('deleteBtn').addEventListener('click', deletePreset);
-
   document.getElementById('exportPoolCSVBtn').addEventListener('click', exportPoolCSV);
   document.getElementById('importPoolCSVBtn').addEventListener('click', () => {
     document.getElementById('importPoolCSVFile').click();
@@ -737,8 +519,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.files[0]) importPoolCSV(e.target.files[0]);
     e.target.value = '';
   });
-
-  refreshPresets();
 });
 </script>
 
