@@ -5,6 +5,7 @@
 <meta name="color-scheme" content="dark">
 <title>Dispatch 派令產生器</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
   :root {
     --bg: #1a1d21;
@@ -132,6 +133,7 @@
   <div class="row">
     <label>每個 zone 產生筆數 (0=枚舉全部 pair,>0=隨機抽樣): <input type="number" id="maxRows" value="50" min="0" style="width:100px"></label>
     <label>每個 device 最多當幾次 Source (只在 =0 全枚舉時生效): <input type="number" id="maxSrcTimes" value="0" style="width:60px"></label>
+    <label><input type="checkbox" id="perZoneFile" checked> 每 zone 一檔 (打包 ZIP)</label>
     <label>輸出檔名: <input type="text" id="outName" value="dispatch.csv" style="width:180px"></label>
   </div>
   <div class="small">建議先用 50 筆/zone 試 (MCS 一次吞不下太多)。Source 從 zone 內隨機抽,Dest 從同 pool 抽。要跑滿測試才設 0。</div>
@@ -317,12 +319,12 @@ function buildDispatchPairsSampled(pools, weights, rowsPerZone) {
       const r = remaining < 2 ? 0 : Math.random(); // force simple if only 1 slot left
 
       if (r < thSimple) {
-        out.push({ src, dst, pool: zi.poolName, mode: 'simple' });
+        out.push({ src, dst, pool: zi.poolName, zone: z, mode: 'simple' });
         modeCount.simple++;
         rowsInZone++;
       } else if (r < thSwap) {
-        out.push({ src, dst, pool: zi.poolName, mode: 'swap' });
-        out.push({ src: dst, dst: src, pool: zi.poolName, mode: 'swap' });
+        out.push({ src, dst, pool: zi.poolName, zone: z, mode: 'swap' });
+        out.push({ src: dst, dst: src, pool: zi.poolName, zone: z, mode: 'swap' });
         modeCount.swap++;
         rowsInZone += 2;
       } else if (zi.poolDevs.length >= 3) {
@@ -332,12 +334,12 @@ function buildDispatchPairsSampled(pools, weights, rowsPerZone) {
           tries2++;
         } while ((k === src || k === dst) && tries2 < 20);
         if (k === src || k === dst) continue;
-        out.push({ src, dst, pool: zi.poolName, mode: 'chain' });
-        out.push({ src: dst, dst: k, pool: zi.poolName, mode: 'chain' });
+        out.push({ src, dst, pool: zi.poolName, zone: z, mode: 'chain' });
+        out.push({ src: dst, dst: k, pool: zi.poolName, zone: z, mode: 'chain' });
         modeCount.chain++;
         rowsInZone += 2;
       } else {
-        out.push({ src, dst, pool: zi.poolName, mode: 'simple' });
+        out.push({ src, dst, pool: zi.poolName, zone: z, mode: 'simple' });
         modeCount.simple++;
         rowsInZone++;
       }
@@ -353,6 +355,11 @@ function buildDispatchPairs(pools, weights, maxSrcTimes) {
   const thSimple = weights.simple / total;
   const thSwap = (weights.simple + weights.swap) / total;
 
+  const deviceToZone = {};
+  for (const [z, devs] of Object.entries(devicesByZone)) {
+    for (const d of devs) deviceToZone[d] = z;
+  }
+
   const out = [];
   const modeCount = { simple: 0, swap: 0, chain: 0 };
   for (const [poolName, info] of Object.entries(pools)) {
@@ -360,26 +367,26 @@ function buildDispatchPairs(pools, weights, maxSrcTimes) {
     if (devices.length < 2) continue;
     for (let i = 0; i < devices.length; i++) {
       let srcCount = 0;
+      const zone = deviceToZone[devices[i]] || poolName;
       for (let j = 0; j < devices.length; j++) {
         if (i === j) continue;
         if (maxSrcTimes > 0 && srcCount >= maxSrcTimes) break;
         const r = Math.random();
         if (r < thSimple) {
-          out.push({ src: devices[i], dst: devices[j], pool: poolName, mode: 'simple' });
+          out.push({ src: devices[i], dst: devices[j], pool: poolName, zone, mode: 'simple' });
           modeCount.simple++;
         } else if (r < thSwap) {
-          out.push({ src: devices[i], dst: devices[j], pool: poolName, mode: 'swap' });
-          out.push({ src: devices[j], dst: devices[i], pool: poolName, mode: 'swap' });
+          out.push({ src: devices[i], dst: devices[j], pool: poolName, zone, mode: 'swap' });
+          out.push({ src: devices[j], dst: devices[i], pool: poolName, zone, mode: 'swap' });
           modeCount.swap++;
         } else if (devices.length >= 3) {
           let k;
           do { k = Math.floor(Math.random() * devices.length); } while (k === i || k === j);
-          out.push({ src: devices[i], dst: devices[j], pool: poolName, mode: 'chain' });
-          out.push({ src: devices[j], dst: devices[k], pool: poolName, mode: 'chain' });
+          out.push({ src: devices[i], dst: devices[j], pool: poolName, zone, mode: 'chain' });
+          out.push({ src: devices[j], dst: devices[k], pool: poolName, zone, mode: 'chain' });
           modeCount.chain++;
         } else {
-          // fallback to simple if pool too small for chain
-          out.push({ src: devices[i], dst: devices[j], pool: poolName, mode: 'simple' });
+          out.push({ src: devices[i], dst: devices[j], pool: poolName, zone, mode: 'simple' });
           modeCount.simple++;
         }
         srcCount++;
@@ -449,18 +456,12 @@ function doGenerate() {
     ExecTime: document.getElementById('fExecTime').value,
   };
 
+  const perZoneFile = document.getElementById('perZoneFile').checked;
+
   const dispatchPairs = maxRows > 0
     ? buildDispatchPairsSampled(pools, weights, maxRows)
     : buildDispatchPairs(pools, weights, maxSrcTimes);
   const modeCount = dispatchPairs._modeCount || { simple: 0, swap: 0, chain: 0 };
-  const finalPairs = dispatchPairs;
-  const totalRows = finalPairs.length;
-  const numBatches = Math.ceil(totalRows / batchSize);
-
-  const cumTimes = [0];
-  for (let b = 1; b < numBatches; b++) {
-    cumTimes.push(cumTimes[b - 1] + randInt(minInterval, maxInterval));
-  }
 
   let cidCounter = 0;
   const nextCID = () => {
@@ -469,53 +470,102 @@ function doGenerate() {
     return c;
   };
 
-  const parts = ['Group,Trigger Time,CarrierID,Lot ID,Lot Num,Carrier Type,Source,Dest,Priority,Replace,Back,BackCarrierID,Back Carrier Type,Execute Time'];
-  const multiCounts = {}; // {K: count} — how many dispatches had K carriers
-  for (let idx = 0; idx < totalRows; idx++) {
-    const p = finalPairs[idx];
-    const info = pools[p.pool];
-    const ctypes = info.carrierTypes.length ? info.carrierTypes : ['C12'];
-    const ct = ctypes[idx % ctypes.length];
-    const time = fmtTimeFromMinutes(cumTimes[Math.floor(idx / batchSize)], wrap);
+  const globalMultiCounts = {};
 
-    const srcMax = Math.max(1, deviceMaxCarriers[p.src] || 1);
-    const k = randInt(1, srcMax);
-    multiCounts[k] = (multiCounts[k] || 0) + 1;
-    const cids = [];
-    for (let n = 0; n < k; n++) cids.push(nextCID());
-    const cidField = cids.join('|');
+  function buildCsvForPairs(pairs) {
+    const numB = Math.ceil(pairs.length / batchSize);
+    const cumT = [0];
+    for (let b = 1; b < numB; b++) cumT.push(cumT[b - 1] + randInt(minInterval, maxInterval));
+    const parts = ['Group,Trigger Time,CarrierID,Lot ID,Lot Num,Carrier Type,Source,Dest,Priority,Replace,Back,BackCarrierID,Back Carrier Type,Execute Time'];
+    for (let idx = 0; idx < pairs.length; idx++) {
+      const p = pairs[idx];
+      const info = pools[p.pool];
+      const ctypes = info.carrierTypes.length ? info.carrierTypes : ['C12'];
+      const ct = ctypes[idx % ctypes.length];
+      const time = fmtTimeFromMinutes(cumT[Math.floor(idx / batchSize)], wrap);
 
-    parts.push([
-      f.Group, time, cidField, f.LotID, f.LotNum, ct,
-      p.src, p.dst,
-      f.Priority, f.Replace, f.Back,
-      ' ', ' ', f.ExecTime,
-    ].join(','));
+      const srcMax = Math.max(1, deviceMaxCarriers[p.src] || 1);
+      const k = randInt(1, srcMax);
+      globalMultiCounts[k] = (globalMultiCounts[k] || 0) + 1;
+      const cids = [];
+      for (let n = 0; n < k; n++) cids.push(nextCID());
+      const cidField = cids.join('|');
+
+      parts.push([
+        f.Group, time, cidField, f.LotID, f.LotNum, ct,
+        p.src, p.dst,
+        f.Priority, f.Replace, f.Back,
+        ' ', ' ', f.ExecTime,
+      ].join(','));
+    }
+    return { csv: parts.join('\n') + '\n', numBatches: numB, previewLines: parts.slice(0, 6) };
   }
 
-  const csv = parts.join('\n') + '\n';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = outName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const totalRows = dispatchPairs.length;
+  const modePct = (n) => (modeCount.simple + modeCount.swap + modeCount.chain)
+    ? ((n * 100) / (modeCount.simple + modeCount.swap + modeCount.chain)).toFixed(0) + '%'
+    : '0%';
 
-  const sizeMB = (csv.length / 1024 / 1024).toFixed(2);
-  const modePct = (n) => totalRows ? ((n * 100) / (modeCount.simple + modeCount.swap + modeCount.chain)).toFixed(0) + '%' : '0%';
-  const multiSummary = Object.keys(multiCounts).sort((a, b) => a - b)
-    .map(k => `${k} carrier×${multiCounts[k]}`).join(', ');
-  document.getElementById('stats').innerHTML =
-    `已產生 <b>${totalRows}</b> 筆 / ${numBatches} 批。` +
-    `Mode: Simple ${modeCount.simple}(${modePct(modeCount.simple)}), Swap ${modeCount.swap}(${modePct(modeCount.swap)}), Chain ${modeCount.chain}(${modePct(modeCount.chain)})。` +
-    `Carriers 分布: ${multiSummary}。` +
-    `檔案 <b>${sizeMB} MB</b>,已下載 <code>${outName}</code>`;
+  if (!perZoneFile) {
+    const { csv, numBatches, previewLines } = buildCsvForPairs(dispatchPairs);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = outName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    const sizeMB = (csv.length / 1024 / 1024).toFixed(2);
+    const multiSummary = Object.keys(globalMultiCounts).sort((a, b) => a - b)
+      .map(k => `${k}c×${globalMultiCounts[k]}`).join(', ');
+    document.getElementById('stats').innerHTML =
+      `已產生 <b>${totalRows}</b> 筆 / ${numBatches} 批。Mode: Simple ${modeCount.simple}(${modePct(modeCount.simple)}), Swap ${modeCount.swap}(${modePct(modeCount.swap)}), Chain ${modeCount.chain}(${modePct(modeCount.chain)})。Carriers: ${multiSummary}。檔案 <b>${sizeMB} MB</b>,已下載 <code>${outName}</code>`;
+    document.getElementById('previewWrap').style.display = 'block';
+    document.getElementById('preview').textContent = previewLines.join('\n');
+    return;
+  }
 
-  document.getElementById('previewWrap').style.display = 'block';
-  document.getElementById('preview').textContent = parts.slice(0, 15).join('\n');
+  // Per-zone mode: split by zone, build ZIP
+  const pairsByZone = {};
+  for (const p of dispatchPairs) {
+    const z = p.zone || 'unknown';
+    if (!pairsByZone[z]) pairsByZone[z] = [];
+    pairsByZone[z].push(p);
+  }
+
+  const zip = new JSZip();
+  const zoneStats = [];
+  const previewLines = [];
+  let firstZone = true;
+  for (const z of Object.keys(pairsByZone).sort()) {
+    const { csv, numBatches, previewLines: pl } = buildCsvForPairs(pairsByZone[z]);
+    const fname = `dispatch_${z}.csv`;
+    zip.file(fname, csv);
+    zoneStats.push(`${z}: ${pairsByZone[z].length}筆 / ${numBatches}批`);
+    if (firstZone) {
+      previewLines.push(`=== ${fname} (前 5 筆) ===`);
+      previewLines.push(...pl);
+      firstZone = false;
+    }
+  }
+
+  const zipName = (outName.replace(/\.csv$/i, '') || 'dispatch') + '_by_zone.zip';
+  zip.generateAsync({ type: 'blob' }).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = zipName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
+    const multiSummary = Object.keys(globalMultiCounts).sort((a, b) => a - b)
+      .map(k => `${k}c×${globalMultiCounts[k]}`).join(', ');
+    document.getElementById('stats').innerHTML =
+      `已產生 <b>${totalRows}</b> 筆,分 ${Object.keys(pairsByZone).length} 個 zone 檔。<br>` +
+      zoneStats.map(s => `&nbsp;&nbsp;• ${s}`).join('<br>') +
+      `<br>Mode: Simple ${modeCount.simple}(${modePct(modeCount.simple)}), Swap ${modeCount.swap}(${modePct(modeCount.swap)}), Chain ${modeCount.chain}(${modePct(modeCount.chain)})。Carriers: ${multiSummary}。` +
+      `<br>ZIP <b>${sizeMB} MB</b>,已下載 <code>${zipName}</code>`;
+    document.getElementById('previewWrap').style.display = 'block';
+    document.getElementById('preview').textContent = previewLines.join('\n');
+  });
 }
 
 // ==================== Step 2 DB Save / Load ====================
