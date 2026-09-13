@@ -130,10 +130,11 @@
     <span id="excludeInfo" class="small" style="margin-left:10px"></span>
   </div>
   <div class="row">
-    <label>Max rows (0=不限): <input type="number" id="maxRows" value="0" style="width:100px"></label>
-    <label>每個 device 最多當幾次 Source (0=不限): <input type="number" id="maxSrcTimes" value="0" style="width:60px"></label>
+    <label>每個 zone 產生筆數 (0=枚舉全部 pair,>0=隨機抽樣): <input type="number" id="maxRows" value="50" min="0" style="width:100px"></label>
+    <label>每個 device 最多當幾次 Source (只在 =0 全枚舉時生效): <input type="number" id="maxSrcTimes" value="0" style="width:60px"></label>
     <label>輸出檔名: <input type="text" id="outName" value="dispatch.csv" style="width:180px"></label>
   </div>
+  <div class="small">建議先用 50 筆/zone 試 (MCS 一次吞不下太多)。Source 從 zone 內隨機抽,Dest 從同 pool 抽。要跑滿測試才設 0。</div>
 </div>
 
 <div class="card" id="generate" style="display:none">
@@ -273,6 +274,79 @@ function randInt(min, max) {
   return min + Math.floor(Math.random() * (max - min + 1));
 }
 
+function buildDispatchPairsSampled(pools, weights, rowsPerZone) {
+  const deviceToZone = {};
+  for (const [z, devs] of Object.entries(devicesByZone)) {
+    for (const d of devs) deviceToZone[d] = z;
+  }
+  const zoneInfo = {};
+  for (const [poolName, info] of Object.entries(pools)) {
+    if (info.devices.length < 2) continue;
+    for (const d of info.devices) {
+      const z = deviceToZone[d];
+      if (!z) continue;
+      if (!zoneInfo[z]) zoneInfo[z] = { poolName, sourceDevs: [], poolDevs: info.devices };
+      zoneInfo[z].sourceDevs.push(d);
+    }
+  }
+
+  const total = weights.simple + weights.swap + weights.chain;
+  if (total <= 0) return [];
+  const thSimple = weights.simple / total;
+  const thSwap = (weights.simple + weights.swap) / total;
+
+  const out = [];
+  const modeCount = { simple: 0, swap: 0, chain: 0 };
+
+  for (const [z, zi] of Object.entries(zoneInfo)) {
+    if (zi.sourceDevs.length === 0 || zi.poolDevs.length < 2) continue;
+    let rowsInZone = 0;
+    let safety = 0;
+    const maxSafety = rowsPerZone * 200 + 500;
+    while (rowsInZone < rowsPerZone && safety < maxSafety) {
+      safety++;
+      const src = zi.sourceDevs[Math.floor(Math.random() * zi.sourceDevs.length)];
+      let dst, tries = 0;
+      do {
+        dst = zi.poolDevs[Math.floor(Math.random() * zi.poolDevs.length)];
+        tries++;
+      } while (dst === src && tries < 20);
+      if (dst === src) continue;
+
+      const remaining = rowsPerZone - rowsInZone;
+      const r = remaining < 2 ? 0 : Math.random(); // force simple if only 1 slot left
+
+      if (r < thSimple) {
+        out.push({ src, dst, pool: zi.poolName, mode: 'simple' });
+        modeCount.simple++;
+        rowsInZone++;
+      } else if (r < thSwap) {
+        out.push({ src, dst, pool: zi.poolName, mode: 'swap' });
+        out.push({ src: dst, dst: src, pool: zi.poolName, mode: 'swap' });
+        modeCount.swap++;
+        rowsInZone += 2;
+      } else if (zi.poolDevs.length >= 3) {
+        let k, tries2 = 0;
+        do {
+          k = zi.poolDevs[Math.floor(Math.random() * zi.poolDevs.length)];
+          tries2++;
+        } while ((k === src || k === dst) && tries2 < 20);
+        if (k === src || k === dst) continue;
+        out.push({ src, dst, pool: zi.poolName, mode: 'chain' });
+        out.push({ src: dst, dst: k, pool: zi.poolName, mode: 'chain' });
+        modeCount.chain++;
+        rowsInZone += 2;
+      } else {
+        out.push({ src, dst, pool: zi.poolName, mode: 'simple' });
+        modeCount.simple++;
+        rowsInZone++;
+      }
+    }
+  }
+  out._modeCount = modeCount;
+  return out;
+}
+
 function buildDispatchPairs(pools, weights, maxSrcTimes) {
   const total = weights.simple + weights.swap + weights.chain;
   if (total <= 0) return [];
@@ -375,9 +449,11 @@ function doGenerate() {
     ExecTime: document.getElementById('fExecTime').value,
   };
 
-  const dispatchPairs = buildDispatchPairs(pools, weights, maxSrcTimes);
+  const dispatchPairs = maxRows > 0
+    ? buildDispatchPairsSampled(pools, weights, maxRows)
+    : buildDispatchPairs(pools, weights, maxSrcTimes);
   const modeCount = dispatchPairs._modeCount || { simple: 0, swap: 0, chain: 0 };
-  const finalPairs = maxRows > 0 ? dispatchPairs.slice(0, maxRows) : dispatchPairs;
+  const finalPairs = dispatchPairs;
   const totalRows = finalPairs.length;
   const numBatches = Math.ceil(totalRows / batchSize);
 
