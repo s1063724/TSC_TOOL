@@ -77,11 +77,15 @@
   <h2>Step 2. Pool 分組 (同 Pool 內 device 兩兩配對)</h2>
   <div class="small">相同 Pool 名稱的 Zone 會合併池;Carrier Type 用逗號分隔可循環套用 (例 <code>F08,F12,FOUP08,FOUP12</code>)。</div>
   <div class="row">
+    <button type="button" id="savePoolDBBtn">存 Pool 設定到 DB</button>
+    <button type="button" id="reloadPoolDBBtn">從 DB 重新載入</button>
+    <span style="margin: 0 8px; color: var(--text-dim)">|</span>
     <button type="button" id="exportPoolCSVBtn">匯出 CSV 設定</button>
     <button type="button" id="importPoolCSVBtn">匯入 CSV 設定</button>
     <input type="file" id="importPoolCSVFile" accept=".csv,text/csv" style="display:none">
     <span id="poolCSVInfo" class="small" style="margin-left:10px"></span>
   </div>
+  <div class="small">上傳 xlsx 後會自動從 DB 套用上次存的設定 (如有)。</div>
   <hr class="sep">
   <div id="poolList"></div>
 </div>
@@ -184,6 +188,7 @@ function handleFile(e) {
       document.getElementById('poolConfig').style.display = 'block';
       document.getElementById('ruleConfig').style.display = 'block';
       document.getElementById('generate').style.display = 'block';
+      loadPoolConfigFromDB({ silentIfEmpty: true });
     } catch (err) {
       document.getElementById('fileInfo').innerHTML =
         `<span class="warn">解析失敗:${err.message}</span>`;
@@ -437,6 +442,86 @@ function doGenerate() {
   document.getElementById('preview').textContent = parts.slice(0, 15).join('\n');
 }
 
+// ==================== Step 2 DB Save / Load ====================
+const POOL_CONFIG_KEY = 'pool_config';
+
+function collectPoolConfig() {
+  const cfg = {};
+  for (const z of Object.keys(devicesByZone)) {
+    const poolInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
+    const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
+    const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
+    if (!poolInp) continue;
+    cfg[z] = {
+      pool: poolInp.value.trim(),
+      carrier_types: ctypeInp ? ctypeInp.value : '',
+      max_carriers: mcInp ? Math.max(1, parseInt(mcInp.value) || 1) : 1,
+    };
+  }
+  return cfg;
+}
+
+function applyPoolConfig(cfg) {
+  let applied = 0, missing = [];
+  for (const z of Object.keys(cfg)) {
+    const p = cfg[z];
+    const poolInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
+    const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
+    const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
+    if (!poolInp) { missing.push(z); continue; }
+    if (p.pool !== undefined) poolInp.value = p.pool;
+    if (p.carrier_types !== undefined) {
+      ctypeInp.value = Array.isArray(p.carrier_types) ? p.carrier_types.join(',') : p.carrier_types;
+    }
+    if (mcInp && p.max_carriers !== undefined) mcInp.value = String(p.max_carriers);
+    applied++;
+  }
+  return { applied, missing };
+}
+
+async function savePoolConfigToDB() {
+  if (!Object.keys(devicesByZone).length) {
+    setPoolCSVInfo('請先上傳 xlsx', true);
+    return;
+  }
+  const cfg = collectPoolConfig();
+  try {
+    const res = await fetch(`/api/settings/${POOL_CONFIG_KEY}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({value: JSON.stringify(cfg)}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || ('HTTP ' + res.status));
+    }
+    setPoolCSVInfo(`已存 ${Object.keys(cfg).length} 個 zone 設定到 DB (${new Date().toLocaleString()})`);
+  } catch (err) {
+    setPoolCSVInfo(`存 DB 失敗: ${err.message}`, true);
+  }
+}
+
+async function loadPoolConfigFromDB(opts) {
+  opts = opts || {};
+  try {
+    const res = await fetch(`/api/settings/${POOL_CONFIG_KEY}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.value) {
+      if (!opts.silentIfEmpty) setPoolCSVInfo('DB 尚無 Pool 設定,使用預設值');
+      return;
+    }
+    const cfg = JSON.parse(data.value);
+    const { applied, missing } = applyPoolConfig(cfg);
+    const ts = (data.updated_at || '').replace('T', ' ').slice(0, 19);
+    let msg = `已從 DB 套用 ${applied} 個 zone 設定 (最後更新 ${ts})`;
+    if (missing.length) msg += `,DB 有但目前 xlsx 沒的 zone 略過 ${missing.length} 個`;
+    setPoolCSVInfo(msg);
+  } catch (err) {
+    if (!opts.silentIfEmpty) setPoolCSVInfo(`從 DB 載入失敗: ${err.message}`, true);
+  }
+}
+
 // ==================== Step 2 CSV Export / Import ====================
 function setPoolCSVInfo(text, isError) {
   const el = document.getElementById('poolCSVInfo');
@@ -559,6 +644,8 @@ async function saveExcludeToDB() {
 
 // ---------- init ----------
 window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('savePoolDBBtn').addEventListener('click', savePoolConfigToDB);
+  document.getElementById('reloadPoolDBBtn').addEventListener('click', () => loadPoolConfigFromDB());
   document.getElementById('exportPoolCSVBtn').addEventListener('click', exportPoolCSV);
   document.getElementById('importPoolCSVBtn').addEventListener('click', () => {
     document.getElementById('importPoolCSVFile').click();
