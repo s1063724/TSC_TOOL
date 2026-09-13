@@ -98,6 +98,12 @@
 <div class="card" id="poolConfig" style="display:none">
   <h2>Step 2. Pool 分組 (同 Pool 內 device 兩兩配對)</h2>
   <div class="small">相同 Pool 名稱的 Zone 會合併池;Carrier Type 用逗號分隔可循環套用 (例 <code>F08,F12,FOUP08,FOUP12</code>)。</div>
+  <div class="row">
+    <button type="button" id="exportPoolCSVBtn">匯出 CSV 設定</button>
+    <button type="button" id="importPoolCSVBtn">匯入 CSV 設定</button>
+    <input type="file" id="importPoolCSVFile" accept=".csv,text/csv" style="display:none">
+    <span id="poolCSVInfo" class="small" style="margin-left:10px"></span>
+  </div>
   <hr class="sep">
   <div id="poolList"></div>
 </div>
@@ -629,6 +635,83 @@ function applyConfig(cfg) {
   }
 }
 
+// ==================== Step 2 CSV Export / Import ====================
+function setPoolCSVInfo(text, isError) {
+  const el = document.getElementById('poolCSVInfo');
+  el.innerHTML = isError ? `<span class="warn">${text}</span>` : text;
+}
+
+function exportPoolCSV() {
+  if (!Object.keys(devicesByZone).length) {
+    setPoolCSVInfo('請先上傳 xlsx', true);
+    return;
+  }
+  const aoa = [['Zone_ID', 'Pool', 'Carrier_Type', 'Max_Carriers', 'Device_Count']];
+  for (const z of Object.keys(devicesByZone).sort()) {
+    const poolInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
+    const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
+    const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
+    aoa.push([
+      z,
+      poolInp ? poolInp.value.trim() : '',
+      ctypeInp ? ctypeInp.value : '',
+      mcInp ? (parseInt(mcInp.value) || 1) : 1,
+      devicesByZone[z].length,
+    ]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const csv = XLSX.utils.sheet_to_csv(ws);
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'pool_config.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setPoolCSVInfo(`已匯出 ${aoa.length - 1} 個 zone 的設定到 pool_config.csv`);
+}
+
+function importPoolCSV(file) {
+  if (!Object.keys(devicesByZone).length) {
+    setPoolCSVInfo('請先上傳 xlsx', true);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const text = evt.target.result;
+      const wb = XLSX.read(text, { type: 'string' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+      if (!rows.length) throw new Error('CSV 空的');
+
+      let applied = 0, skipped = [];
+      for (const r of rows) {
+        const z = String(r['Zone_ID'] || '').trim();
+        if (!z) continue;
+        const poolInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
+        const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
+        const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
+        if (!poolInp) { skipped.push(z); continue; }
+        if (r['Pool'] !== null && r['Pool'] !== undefined) poolInp.value = String(r['Pool']).trim();
+        if (r['Carrier_Type'] !== null && r['Carrier_Type'] !== undefined) ctypeInp.value = String(r['Carrier_Type']);
+        if (r['Max_Carriers'] !== null && r['Max_Carriers'] !== undefined && mcInp) {
+          mcInp.value = String(Math.max(1, parseInt(r['Max_Carriers']) || 1));
+        }
+        applied++;
+      }
+      let msg = `已匯入 ${applied} 個 zone 設定`;
+      if (skipped.length) msg += `,略過 ${skipped.length} 個 CSV 中有但 xlsx 沒對應的 zone: ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '...' : ''}`;
+      setPoolCSVInfo(msg);
+    } catch (err) {
+      setPoolCSVInfo(`匯入失敗: ${err.message}`, true);
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ---------- init ----------
 window.addEventListener('DOMContentLoaded', () => {
   const authorInp = document.getElementById('author');
@@ -645,6 +728,15 @@ window.addEventListener('DOMContentLoaded', () => {
     if (n && n.trim()) savePresetAs(n.trim());
   });
   document.getElementById('deleteBtn').addEventListener('click', deletePreset);
+
+  document.getElementById('exportPoolCSVBtn').addEventListener('click', exportPoolCSV);
+  document.getElementById('importPoolCSVBtn').addEventListener('click', () => {
+    document.getElementById('importPoolCSVFile').click();
+  });
+  document.getElementById('importPoolCSVFile').addEventListener('change', (e) => {
+    if (e.target.files[0]) importPoolCSV(e.target.files[0]);
+    e.target.value = '';
+  });
 
   refreshPresets();
 });
