@@ -118,14 +118,10 @@
   <div class="small">CSV 的 BackCarrierID 與 Back Carrier Type 欄位固定留空。多 carrier 派令的所有 CarrierID 用 <code>|</code> 分隔合併到 CarrierID 欄位。</div>
   <hr class="sep">
   <div class="row">
-    <label style="display:block">排除 Device (逗號分隔,支援 * 萬用字元) — 存到後端 DB 供所有人共用:<br>
+    <label style="display:block">排除 Device (逗號分隔,支援 * 萬用字元) — 存到後端 DB 供所有人共用,離開輸入框自動儲存:<br>
       <input type="text" id="excludeDevices" value="MGZ_NG_PORT_02,MGZ_NG_PORT_03,MGZ_NG_PORT_04,CST_NG_PORT_02" style="width:100%; box-sizing:border-box">
     </label>
-  </div>
-  <div class="row">
-    <button type="button" id="saveExcludeBtn">存到資料庫</button>
-    <button type="button" id="reloadExcludeBtn">從資料庫重新載入</button>
-    <span id="excludeInfo" class="small" style="margin-left:10px"></span>
+    <span id="excludeInfo" class="small"></span>
   </div>
   <div class="row">
     <label>每個 zone 產生筆數 (0=枚舉全部 pair,>0=隨機抽樣): <input type="number" id="maxRows" value="50" min="0" style="width:100px"></label>
@@ -778,9 +774,15 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.files[0]) importPoolCSV(e.target.files[0]);
     e.target.value = '';
   });
-  document.getElementById('saveExcludeBtn').addEventListener('click', saveExcludeToDB);
-  document.getElementById('reloadExcludeBtn').addEventListener('click', loadExcludeFromDB);
-  loadExcludeFromDB();
+  const excludeInp = document.getElementById('excludeDevices');
+  let excludeLastSaved = excludeInp.value;
+  excludeInp.addEventListener('blur', () => {
+    if (excludeInp.value !== excludeLastSaved) {
+      excludeLastSaved = excludeInp.value;
+      saveExcludeToDB();
+    }
+  });
+  loadExcludeFromDB().then(() => { excludeLastSaved = excludeInp.value; });
 });
 </script>
 
