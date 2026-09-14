@@ -78,15 +78,12 @@
   <h2>Step 2. Pool 分組 (同 Pool 內 device 兩兩配對)</h2>
   <div class="small">相同 Pool 名稱的 Zone 會合併池;Carrier Type 用逗號分隔可循環套用 (例 <code>F08,F12,FOUP08,FOUP12</code>)。</div>
   <div class="row">
-    <button type="button" id="savePoolDBBtn">存 Pool 設定到 DB</button>
-    <button type="button" id="reloadPoolDBBtn">從 DB 重新載入</button>
-    <span style="margin: 0 8px; color: var(--text-dim)">|</span>
     <button type="button" id="exportPoolCSVBtn">匯出 CSV 設定</button>
     <button type="button" id="importPoolCSVBtn">匯入 CSV 設定</button>
     <input type="file" id="importPoolCSVFile" accept=".csv,text/csv" style="display:none">
     <span id="poolCSVInfo" class="small" style="margin-left:10px"></span>
   </div>
-  <div class="small">上傳 xlsx 後會自動從 DB 套用上次存的設定 (如有)。</div>
+  <div class="small">上傳 xlsx 後自動從 DB 套用上次的設定;匯入 CSV 後自動存回 DB (跨使用者共用)。</div>
   <hr class="sep">
   <div id="poolList"></div>
 </div>
@@ -717,7 +714,10 @@ function importPoolCSV(file) {
       }
       let msg = `已匯入 ${applied} 個 zone 設定`;
       if (skipped.length) msg += `,略過 ${skipped.length} 個 CSV 中有但 xlsx 沒對應的 zone: ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '...' : ''}`;
-      setPoolCSVInfo(msg);
+      setPoolCSVInfo(msg + ' — 存回 DB 中...');
+      if (applied > 0) {
+        savePoolConfigToDB();
+      }
     } catch (err) {
       setPoolCSVInfo(`匯入失敗: ${err.message}`, true);
     }
@@ -770,8 +770,6 @@ async function saveExcludeToDB() {
 
 // ---------- init ----------
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('savePoolDBBtn').addEventListener('click', savePoolConfigToDB);
-  document.getElementById('reloadPoolDBBtn').addEventListener('click', () => loadPoolConfigFromDB());
   document.getElementById('exportPoolCSVBtn').addEventListener('click', exportPoolCSV);
   document.getElementById('importPoolCSVBtn').addEventListener('click', () => {
     document.getElementById('importPoolCSVFile').click();
