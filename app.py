@@ -9,9 +9,10 @@ import configparser
 import os
 
 import pymysql
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.ini")
 
 _cfg = configparser.ConfigParser()
@@ -30,33 +31,35 @@ DB = {
 SERVER_HOST = _cfg.get("server", "host", fallback="0.0.0.0")
 SERVER_PORT = _cfg.getint("server", "port", fallback=9000)
 
-app = Flask(__name__, static_folder=None)
+app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=None)
 
 
 def db():
     return pymysql.connect(**DB)
 
 
-# ---------- static files ----------
+# ---------- pages (Jinja templates) ----------
 
 @app.route("/")
 def index():
-    return send_from_directory(BASE_DIR, "index.html")
+    return render_template("index.html", active="index")
 
 
 @app.route("/check")
 def check_page():
-    return send_from_directory(BASE_DIR, "check.html")
+    return render_template("check.html", active="check")
 
 
 @app.route("/stats")
 def stats_page():
-    return send_from_directory(BASE_DIR, "stats.html")
+    return render_template("stats.html", active="stats")
 
+
+# ---------- other static files (favicons, offline libs) ----------
 
 @app.route("/<path:filename>")
 def static_file(filename):
-    if filename.startswith(("config", "app.py", "schema.sql", ".")):
+    if filename.startswith(("config", "app.py", "schema.sql", "templates", ".")):
         return jsonify({"error": "forbidden"}), 403
     full = os.path.join(BASE_DIR, filename)
     if not os.path.isfile(full):

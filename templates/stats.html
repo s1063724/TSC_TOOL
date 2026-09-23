@@ -1,80 +1,14 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="utf-8">
-<meta name="color-scheme" content="dark">
-<title>TSC TOOL — 異常統計</title>
+{% extends '_base.html' %}
+
+{% block title %}TSC TOOL — 異常統計{% endblock %}
+
+{% block head_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+{% endblock %}
+
+{% block extra_styles %}
 <style>
-  :root {
-    --bg: #1a1d21;
-    --bg-card: #24282e;
-    --bg-input: #2d3239;
-    --bg-chip: #1e3a5f;
-    --border: #3a4048;
-    --border-input: #4a5058;
-    --text: #d8dde3;
-    --text-dim: #8a9099;
-    --text-heading: #e8ecf1;
-    --accent: #4a9eff;
-    --accent-hover: #6bb1ff;
-    --warn: #ff6b6b;
-    --ok: #4ade80;
-    --serious: #ff6b6b;
-    --error: #ffa657;
-    --warning: #f5d76e;
-    --info: #8ab4ff;
-    --code-bg: #12151a;
-    --code-text: #b2ccd6;
-  }
-  html, body { background: var(--bg); }
-  body { font-family: -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; width: 95%; max-width: 1800px; margin: 20px auto; padding: 0 16px; color: var(--text); font-size: 14pt; }
-  h1 { font-size: 22pt; color: var(--text-heading); font-weight: 600; margin-bottom: 6px; }
-  h2 { font-size: 16pt; margin-top: 0; margin-bottom: 10px; color: var(--text-heading); font-weight: 600; }
-  a { color: var(--accent); }
-  .card { border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin: 14px 0; background: var(--bg-card); }
-  label { font-size: 14pt; display: inline-block; margin-right: 12px; }
-  input[type=text], input[type=number], select {
-    padding: 8px 12px; font-size: 14pt;
-    background: var(--bg-input); color: var(--text);
-    border: 1px solid var(--border-input); border-radius: 3px;
-  }
-  input[type=file] { color: var(--text); font-size: 14pt; }
-  input[type=file]::file-selector-button {
-    background: var(--bg-input); color: var(--text);
-    border: 1px solid var(--border-input); border-radius: 3px;
-    padding: 8px 16px; font-size: 14pt; cursor: pointer; margin-right: 10px;
-  }
-  input[type=file]::file-selector-button:hover { background: var(--border); }
-  input[type=checkbox] { accent-color: var(--accent); transform: scale(1.3); margin: 0 4px; }
-  button { padding: 10px 22px; font-size: 14pt; background: var(--accent); color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-weight: 500; }
-  button:hover:not(:disabled) { background: var(--accent-hover); }
-  button:disabled { background: var(--border-input); color: var(--text-dim); cursor: not-allowed; }
-  .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border-input); }
-  .btn-secondary:hover:not(:disabled) { background: var(--border); }
-  .row { margin: 10px 0; }
-  .small { font-size: 11pt; color: var(--text-dim); margin-top: 8px; }
-  .warn { color: var(--warn); }
-  .ok { color: var(--ok); }
-  code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-size: 13pt; color: var(--code-text); }
-  hr.sep { border: 0; border-top: 1px dashed var(--border); margin: 12px 0; }
-  .site-header {
-    display: flex; align-items: center; gap: 24px;
-    padding: 14px 40px;
-    background: #0f1622;
-    border-bottom: 2px solid var(--accent);
-    margin-top: -20px;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    margin-bottom: 22px;
-    width: 100vw; box-sizing: border-box;
-  }
-  .site-header .brand { font-size: 16pt; font-weight: 600; color: var(--text-heading); letter-spacing: 0.5px; }
-  .site-header nav { display: flex; gap: 6px; }
-  .site-header nav a { padding: 8px 18px; border-radius: 4px; text-decoration: none; color: var(--text-dim); font-size: 13pt; font-weight: 500; border: 1px solid transparent; }
-  .site-header nav a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-  .site-header nav a.active { color: var(--accent); background: rgba(74,158,255,0.12); border-color: rgba(74,158,255,0.35); }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 12px 0; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 12px 0; }
   .stat-box { padding: 12px 16px; background: var(--bg-input); border-radius: 6px; border-left: 3px solid var(--accent); }
   .stat-box.serious { border-left-color: var(--serious); }
   .stat-box.error { border-left-color: var(--error); }
@@ -101,23 +35,10 @@
   .level-Info    { background: rgba(138,180,255,0.15); color: var(--info); }
   .chart-wrap { position: relative; height: 460px; margin-top: 8px; }
   .filter-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 8px 0; }
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border-input); border-radius: 5px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 </style>
-</head>
-<body>
+{% endblock %}
 
-<header class="site-header">
-  <div class="brand">TSC TOOL</div>
-  <nav>
-    <a href="/">派令產生</a>
-    <a href="/check">檢查重複設定</a>
-    <a href="/stats" class="active">異常統計</a>
-  </nav>
-</header>
-
+{% block content %}
 <div class="small" style="margin-bottom:10px">上傳 TSC UI log (含 <code>[ALARM]</code> 事件),解析後產出摘要、統計表、時間軸折線圖。全部處理在瀏覽器內。</div>
 
 <div class="card">
@@ -183,7 +104,9 @@
     </table>
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 let allAlarms = [];   // parsed from files
 let lastGroups = [];  // aggregated result for CSV
@@ -523,6 +446,4 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 </script>
-
-</body>
-</html>
+{% endblock %}

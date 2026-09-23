@@ -1,59 +1,14 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="utf-8">
-<meta name="color-scheme" content="dark">
-<title>TSC TOOL — 檢查重複設定</title>
+{% extends '_base.html' %}
+
+{% block title %}TSC TOOL — 檢查{% endblock %}
+
+{% block head_scripts %}
+
+{% endblock %}
+
+{% block extra_styles %}
 <style>
-  :root {
-    --bg: #1a1d21;
-    --bg-card: #24282e;
-    --bg-input: #2d3239;
-    --bg-chip: #1e3a5f;
-    --border: #3a4048;
-    --border-input: #4a5058;
-    --text: #d8dde3;
-    --text-dim: #8a9099;
-    --text-heading: #e8ecf1;
-    --accent: #4a9eff;
-    --accent-hover: #6bb1ff;
-    --warn: #ff6b6b;
-    --ok: #4ade80;
-    --code-bg: #12151a;
-    --code-text: #b2ccd6;
-  }
-  html, body { background: var(--bg); }
-  body { font-family: -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; width: 95%; max-width: 1800px; margin: 20px auto; padding: 0 16px; color: var(--text); font-size: 14pt; }
-  h1 { font-size: 22pt; color: var(--text-heading); font-weight: 600; margin-bottom: 6px; }
-  h2 { font-size: 16pt; margin-top: 0; margin-bottom: 10px; color: var(--text-heading); font-weight: 600; }
-  a { color: var(--accent); }
-  .card { border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin: 14px 0; background: var(--bg-card); }
-  label { font-size: 14pt; display: inline-block; margin-right: 12px; }
-  input[type=text], input[type=number], select {
-    padding: 8px 12px; font-size: 14pt;
-    background: var(--bg-input); color: var(--text);
-    border: 1px solid var(--border-input); border-radius: 3px;
-  }
-  input[type=file] { color: var(--text); font-size: 14pt; }
-  input[type=file]::file-selector-button {
-    background: var(--bg-input); color: var(--text);
-    border: 1px solid var(--border-input); border-radius: 3px;
-    padding: 8px 16px; font-size: 14pt; cursor: pointer; margin-right: 10px;
-  }
-  input[type=file]::file-selector-button:hover { background: var(--border); }
-  input[type=checkbox] { accent-color: var(--accent); transform: scale(1.3); margin: 0 4px; }
-  button { padding: 10px 22px; font-size: 14pt; background: var(--accent); color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-weight: 500; }
-  button:hover:not(:disabled) { background: var(--accent-hover); }
-  button:disabled { background: var(--border-input); color: var(--text-dim); cursor: not-allowed; }
-  .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border-input); }
-  .btn-secondary:hover:not(:disabled) { background: var(--border); }
-  .row { margin: 10px 0; }
-  .small { font-size: 11pt; color: var(--text-dim); margin-top: 8px; }
-  .warn { color: var(--warn); }
-  .ok { color: var(--ok); }
-  code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-size: 13pt; color: var(--code-text); }
-  hr.sep { border: 0; border-top: 1px dashed var(--border); margin: 12px 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 12pt; }
+table { width: 100%; border-collapse: collapse; font-size: 12pt; }
   th { text-align: left; padding: 10px 12px; background: var(--bg-input); position: sticky; top: 0; color: var(--text-heading); font-weight: 600; font-size: 12pt; }
   td { padding: 6px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-family: Menlo, Consolas, monospace; font-size: 11pt; }
   tbody tr:hover { background: var(--bg-input); }
@@ -62,26 +17,6 @@
   .stats-row { display:flex; gap:20px; flex-wrap: wrap; margin: 6px 0; }
   .stat { padding: 6px 12px; background: var(--bg-input); border-radius: 4px; font-size: 12pt; }
   .stat b { color: var(--text-heading); font-size: 15pt; }
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border-input); border-radius: 5px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
-  .site-header {
-    display: flex; align-items: center; gap: 24px;
-    padding: 14px 40px;
-    background: #0f1622;
-    border-bottom: 2px solid var(--accent);
-    margin-top: -20px;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    margin-bottom: 22px;
-    width: 100vw; box-sizing: border-box;
-  }
-  .site-header .brand { font-size: 16pt; font-weight: 600; color: var(--text-heading); letter-spacing: 0.5px; }
-  .site-header nav { display: flex; gap: 6px; }
-  .site-header nav a { padding: 8px 18px; border-radius: 4px; text-decoration: none; color: var(--text-dim); font-size: 13pt; font-weight: 500; border: 1px solid transparent; }
-  .site-header nav a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-  .site-header nav a.active { color: var(--accent); background: rgba(74,158,255,0.12); border-color: rgba(74,158,255,0.35); }
   .tabs { display: flex; gap: 6px; margin: 8px 0 -1px; border-bottom: 1px solid var(--border); }
   .tab-btn { background: var(--bg); color: var(--text-dim); border: 1px solid var(--border); border-bottom: 0; border-radius: 6px 6px 0 0; padding: 10px 26px; cursor: pointer; font-size: 13pt; font-weight: 500; }
   .tab-btn.active { background: var(--bg-card); color: var(--accent); position: relative; top: 1px; }
@@ -115,18 +50,9 @@
   .diff-table td pre { font-size: 12pt; }
   .diff-table td .small { font-size: 11pt; }
 </style>
-</head>
-<body>
+{% endblock %}
 
-<header class="site-header">
-  <div class="brand">TSC TOOL</div>
-  <nav>
-    <a href="/">派令產生</a>
-    <a href="/check" class="active">檢查重複設定</a>
-    <a href="/stats">異常統計</a>
-  </nav>
-</header>
-
+{% block content %}
 <div class="small" style="margin-bottom:6px">在 TSC project JSON 上做重複檢查或新舊版本比對,全部在瀏覽器內處理,原檔不動。</div>
 
 <div class="tabs">
@@ -225,7 +151,9 @@
 </div>
 
 </div><!-- /#modeCompare -->
+{% endblock %}
 
+{% block scripts %}
 <script>
 let projectData = null;   // parsed JSON
 let projectName = '';
@@ -1055,6 +983,4 @@ function exportDiffCSV() {
   URL.revokeObjectURL(url);
 }
 </script>
-
-</body>
-</html>
+{% endblock %}

@@ -1,5 +1,9 @@
 # TSC TOOL Changelog
 
+## v2.4.260923
+* **Changed:** Templates - HTML pages migrated from flat root files to Jinja templates under `templates/`. Introduced `_base.html` (skeleton + shared CSS: `:root` vars, body/h1/h2/form controls/buttons/utility classes/scrollbar/**site-header**) and `_header.html` (nav partial with `{% if active == 'X' %}class="active"{% endif %}` logic). Each page (`index.html` / `check.html` / `stats.html`) now `{% extends '_base.html' %}` with page-specific CSS/scripts inside blocks (`head_scripts` / `extra_styles` / `content` / `scripts`). Single source of truth for the header — future nav additions or restyling touch only `_base.html` / `_header.html`.
+* **Changed:** app.py - Routes migrated from `send_from_directory` to `render_template("<name>", active="<slug>")`. Static file catch-all still serves other assets from `BASE_DIR` (e.g. offline SheetJS/Chart.js if downloaded); explicitly forbids `templates/` prefix.
+
 ## v2.3.260923
 * **Added:** Stats Page - New `/stats` standalone page (異常統計) that ingests raw TSC UI logs and produces alarm statistics. Supports multi-file upload (drag-in `.log` / `.txt`); parses lines matching `[TIMESTAMP] [LEVEL] [ALARM] [SYSTEM] [version]: {...}` and extracts `Level / Code / SubCode / Cause / Detail / UnitID / UnitType / CommandID`.
 * **Added:** Stats Page - Summary card: total alarms, per-level breakdown (Serious / Error / Warning / Info), affected device count, unique alarm-code count, time range with span in hours.

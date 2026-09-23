@@ -1,0 +1,8 @@
+<header class="site-header">
+  <div class="brand">TSC TOOL</div>
+  <nav>
+    <a href="/"      {% if active == 'index' %}class="active"{% endif %}>派令產生</a>
+    <a href="/check" {% if active == 'check' %}class="active"{% endif %}>檢查重複設定</a>
+    <a href="/stats" {% if active == 'stats' %}class="active"{% endif %}>異常統計</a>
+  </nav>
+</header>
