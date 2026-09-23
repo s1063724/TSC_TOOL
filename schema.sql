@@ -1,11 +1,11 @@
--- Dispatch Generator schema
+-- TSC TOOL schema
 -- MariaDB / MySQL
 
-CREATE DATABASE IF NOT EXISTS dispatch_generator
+CREATE DATABASE IF NOT EXISTS tsc_tool
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-USE dispatch_generator;
+USE tsc_tool;
 
 -- Generic key-value settings shared across users.
 -- Currently used for the exclude-devices list.

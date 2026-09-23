@@ -39,4 +39,8 @@ desktop.ini
 
 # ===== Backup =====
 *.bak
+*.bak.rename
 *_bk*/
+
+# ===== Customer / project data (may contain sensitive info) =====
+project/

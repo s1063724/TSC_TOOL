@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<title>TSC TOOL — 異常統計</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #1a1d21;
+    --bg-card: #24282e;
+    --bg-input: #2d3239;
+    --bg-chip: #1e3a5f;
+    --border: #3a4048;
+    --border-input: #4a5058;
+    --text: #d8dde3;
+    --text-dim: #8a9099;
+    --text-heading: #e8ecf1;
+    --accent: #4a9eff;
+    --accent-hover: #6bb1ff;
+    --warn: #ff6b6b;
+    --ok: #4ade80;
+    --serious: #ff6b6b;
+    --error: #ffa657;
+    --warning: #f5d76e;
+    --info: #8ab4ff;
+    --code-bg: #12151a;
+    --code-text: #b2ccd6;
+  }
+  html, body { background: var(--bg); }
+  body { font-family: -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; width: 95%; max-width: 1800px; margin: 20px auto; padding: 0 16px; color: var(--text); font-size: 14pt; }
+  h1 { font-size: 22pt; color: var(--text-heading); font-weight: 600; margin-bottom: 6px; }
+  h2 { font-size: 16pt; margin-top: 0; margin-bottom: 10px; color: var(--text-heading); font-weight: 600; }
+  a { color: var(--accent); }
+  .card { border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin: 14px 0; background: var(--bg-card); }
+  label { font-size: 14pt; display: inline-block; margin-right: 12px; }
+  input[type=text], input[type=number], select {
+    padding: 8px 12px; font-size: 14pt;
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border-input); border-radius: 3px;
+  }
+  input[type=file] { color: var(--text); font-size: 14pt; }
+  input[type=file]::file-selector-button {
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border-input); border-radius: 3px;
+    padding: 8px 16px; font-size: 14pt; cursor: pointer; margin-right: 10px;
+  }
+  input[type=file]::file-selector-button:hover { background: var(--border); }
+  input[type=checkbox] { accent-color: var(--accent); transform: scale(1.3); margin: 0 4px; }
+  button { padding: 10px 22px; font-size: 14pt; background: var(--accent); color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-weight: 500; }
+  button:hover:not(:disabled) { background: var(--accent-hover); }
+  button:disabled { background: var(--border-input); color: var(--text-dim); cursor: not-allowed; }
+  .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border-input); }
+  .btn-secondary:hover:not(:disabled) { background: var(--border); }
+  .row { margin: 10px 0; }
+  .small { font-size: 11pt; color: var(--text-dim); margin-top: 8px; }
+  .warn { color: var(--warn); }
+  .ok { color: var(--ok); }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-size: 13pt; color: var(--code-text); }
+  hr.sep { border: 0; border-top: 1px dashed var(--border); margin: 12px 0; }
+  .site-header {
+    display: flex; align-items: center; gap: 24px;
+    padding: 14px 40px;
+    background: #0f1622;
+    border-bottom: 2px solid var(--accent);
+    margin-top: -20px;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-bottom: 22px;
+    width: 100vw; box-sizing: border-box;
+  }
+  .site-header .brand { font-size: 16pt; font-weight: 600; color: var(--text-heading); letter-spacing: 0.5px; }
+  .site-header nav { display: flex; gap: 6px; }
+  .site-header nav a { padding: 8px 18px; border-radius: 4px; text-decoration: none; color: var(--text-dim); font-size: 13pt; font-weight: 500; border: 1px solid transparent; }
+  .site-header nav a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .site-header nav a.active { color: var(--accent); background: rgba(74,158,255,0.12); border-color: rgba(74,158,255,0.35); }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 12px 0; }
+  .stat-box { padding: 12px 16px; background: var(--bg-input); border-radius: 6px; border-left: 3px solid var(--accent); }
+  .stat-box.serious { border-left-color: var(--serious); }
+  .stat-box.error { border-left-color: var(--error); }
+  .stat-box.warning { border-left-color: var(--warning); }
+  .stat-box.info { border-left-color: var(--info); }
+  .stat-box .label { font-size: 11pt; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-box .value { font-size: 22pt; font-weight: 700; color: var(--text-heading); font-variant-numeric: tabular-nums; }
+  .stat-box .sub { font-size: 11pt; color: var(--text-dim); margin-top: 2px; }
+  .stat-table { width: 100%; border-collapse: collapse; font-size: 13pt; margin-top: 8px; }
+  .stat-table th, .stat-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .stat-table th { background: var(--bg-input); color: var(--text-heading); font-weight: 600; font-size: 12pt; position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; }
+  .stat-table th:hover { color: var(--accent); }
+  .stat-table th.sorted-asc::after { content: ' ▲'; font-size: 10pt; color: var(--accent); }
+  .stat-table th.sorted-desc::after { content: ' ▼'; font-size: 10pt; color: var(--accent); }
+  .stat-table tr:last-child td { border-bottom: 0; }
+  .stat-table tr:hover { background: var(--bg-input); }
+  .stat-table td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: Menlo, Consolas, monospace; }
+  .stat-table td.mono { font-family: Menlo, Consolas, monospace; font-size: 12pt; }
+  .stat-table-wrap { max-height: 600px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; margin-top: 8px; }
+  .level-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11pt; font-weight: 600; }
+  .level-Serious { background: rgba(255,107,107,0.15); color: var(--serious); }
+  .level-Error   { background: rgba(255,166,87,0.15); color: var(--error); }
+  .level-Warning { background: rgba(245,215,110,0.15); color: var(--warning); }
+  .level-Info    { background: rgba(138,180,255,0.15); color: var(--info); }
+  .chart-wrap { position: relative; height: 460px; margin-top: 8px; }
+  .filter-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 8px 0; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-input); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand">TSC TOOL</div>
+  <nav>
+    <a href="/">派令產生</a>
+    <a href="/check">檢查重複設定</a>
+    <a href="/stats" class="active">異常統計</a>
+  </nav>
+</header>
+
+<div class="small" style="margin-bottom:10px">上傳 TSC UI log (含 <code>[ALARM]</code> 事件),解析後產出摘要、統計表、時間軸折線圖。全部處理在瀏覽器內。</div>
+
+<div class="card">
+  <h2>Step 1. 上傳 log</h2>
+  <input type="file" id="logFile" accept=".log,.txt,text/plain" multiple>
+  <div id="logInfo" class="small"></div>
+</div>
+
+<div class="card" id="optCard" style="display:none">
+  <h2>Step 2. 過濾與分組</h2>
+  <div class="filter-row">
+    <label><input type="checkbox" class="lvl-chk" value="Serious" checked> <span class="level-badge level-Serious">Serious</span></label>
+    <label><input type="checkbox" class="lvl-chk" value="Error"   checked> <span class="level-badge level-Error">Error</span></label>
+    <label><input type="checkbox" class="lvl-chk" value="Warning" checked> <span class="level-badge level-Warning">Warning</span></label>
+    <label><input type="checkbox" class="lvl-chk" value="Info"> <span class="level-badge level-Info">Info</span></label>
+  </div>
+  <div class="filter-row">
+    <label>時間桶:
+      <select id="bucketSel">
+        <option value="auto">Auto</option>
+        <option value="5min">5 分鐘</option>
+        <option value="15min">15 分鐘</option>
+        <option value="hour">1 小時</option>
+        <option value="day">1 天</option>
+      </select>
+    </label>
+    <label>折線圖只畫 Top N codes: <input type="number" id="topN" value="8" min="1" max="30" style="width:70px"></label>
+    <label>Device 篩選 (可空): <input type="text" id="deviceFilter" placeholder="CR101,MG503" style="width:180px"></label>
+  </div>
+  <div class="row">
+    <button id="runBtn">分析</button>
+    <button id="exportBtn" class="btn-secondary" disabled>匯出統計 CSV</button>
+    <span id="runInfo" class="small" style="margin-left:10px"></span>
+  </div>
+</div>
+
+<div class="card" id="summaryCard" style="display:none">
+  <h2>摘要</h2>
+  <div class="stats-grid" id="summaryGrid"></div>
+</div>
+
+<div class="card" id="chartCard" style="display:none">
+  <h2>折線圖 — 異常數量 vs 時間 (依 alarm code 分組)</h2>
+  <div class="chart-wrap"><canvas id="alarmChart"></canvas></div>
+</div>
+
+<div class="card" id="tableCard" style="display:none">
+  <h2>統計表 (依 Code + SubCode 分組)</h2>
+  <div class="stat-table-wrap">
+    <table class="stat-table" id="statTable">
+      <thead><tr>
+        <th data-sort="code">Code</th>
+        <th data-sort="subCode">SubCode</th>
+        <th data-sort="level">Level</th>
+        <th data-sort="cause">Cause</th>
+        <th data-sort="detail">Detail (最新)</th>
+        <th data-sort="count" class="num-th">次數</th>
+        <th data-sort="first">首次</th>
+        <th data-sort="last">最後</th>
+        <th>影響 device</th>
+      </tr></thead>
+      <tbody id="statBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let allAlarms = [];   // parsed from files
+let lastGroups = [];  // aggregated result for CSV
+let chart = null;
+let sortState = { key: 'count', dir: 'desc' };
+
+// ==================== File load ====================
+document.getElementById('logFile').addEventListener('change', handleFiles);
+document.getElementById('runBtn').addEventListener('click', runAnalysis);
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.querySelectorAll('#statTable thead th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    sortState = { key, dir: (sortState.key === key && sortState.dir === 'desc') ? 'asc' : 'desc' };
+    renderTable(lastGroups);
+  });
+});
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function handleFiles(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  const infoEl = document.getElementById('logInfo');
+  infoEl.textContent = `讀取 ${files.length} 個檔...`;
+  allAlarms = [];
+  const perFile = [];
+  let totalLines = 0;
+  for (const f of files) {
+    const text = await f.text();
+    const before = allAlarms.length;
+    const linesInFile = text.split(/\r?\n/).length;
+    totalLines += linesInFile;
+    parseAlarmLines(text, f.name);
+    perFile.push(`<code>${escapeHtml(f.name)}</code>: ${(allAlarms.length - before)} alarms / ${linesInFile} lines`);
+  }
+  allAlarms.sort((a, b) => a.ts - b.ts);
+  infoEl.innerHTML = `<b>共 ${allAlarms.length}</b> alarm 從 ${totalLines} 行掃出<br>` + perFile.join('<br>');
+  document.getElementById('optCard').style.display = 'block';
+}
+
+// ==================== Log parser ====================
+const ALARM_RE = /^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(\d+)\] \[(\w+)\] \[ALARM\] /;
+
+function parseAlarmLines(text, srcName) {
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    const m = ALARM_RE.exec(line);
+    if (!m) continue;
+    const [datePart, timePart] = m[1].split(' ');
+    const ts = new Date(`${datePart}T${timePart}.${m[2].padEnd(3, '0').slice(0, 3)}`);
+    if (isNaN(ts.getTime())) continue;
+    const bracketLevel = m[3];
+    const body = line.slice(m[0].length);
+    const level = extractField(body, 'Level') || bracketLevel;
+    const code = parseInt(extractField(body, 'Code') || '0', 10);
+    const subCode = extractField(body, 'SubCode');
+    const detail = extractField(body, 'Detail');
+    const cause = extractField(body, 'Cause');
+    const unitID = extractField(body, 'UnitID');
+    const unitType = extractField(body, 'UnitType');
+    const commandID = extractField(body, 'CommandID');
+    allAlarms.push({ ts, level, code, subCode, detail, cause, unitID, unitType, commandID, src: srcName });
+  }
+}
+
+function extractField(body, key) {
+  // Try single-quoted string first
+  let re = new RegExp("'" + key + "':\\s*'((?:[^'\\\\]|\\\\.)*)'");
+  let m = re.exec(body);
+  if (m) return m[1];
+  // Fallback: bare number/word
+  re = new RegExp("'" + key + "':\\s*([-\\w]+)");
+  m = re.exec(body);
+  return m ? m[1] : '';
+}
+
+// ==================== Analysis ====================
+function chosenLevels() {
+  return Array.from(document.querySelectorAll('.lvl-chk:checked')).map(c => c.value);
+}
+
+function pickBucket(minTs, maxTs) {
+  const sel = document.getElementById('bucketSel').value;
+  if (sel !== 'auto') return sel;
+  const spanMs = maxTs - minTs;
+  const h = spanMs / 3.6e6;
+  if (h < 2)   return '5min';
+  if (h < 12)  return '15min';
+  if (h < 72)  return 'hour';
+  return 'day';
+}
+
+function bucketMs(bucket) {
+  return { '5min': 5*60*1000, '15min': 15*60*1000, 'hour': 3600*1000, 'day': 86400*1000 }[bucket] || 3600*1000;
+}
+
+function floorToBucket(ts, bucket) {
+  const d = new Date(ts);
+  if (bucket === 'day') { d.setHours(0, 0, 0, 0); return d.getTime(); }
+  if (bucket === 'hour') { d.setMinutes(0, 0, 0); return d.getTime(); }
+  const minutes = d.getMinutes();
+  const stepMin = bucket === '5min' ? 5 : 15;
+  d.setMinutes(Math.floor(minutes / stepMin) * stepMin, 0, 0);
+  return d.getTime();
+}
+
+function fmtBucketLabel(tsMs, bucket) {
+  const d = new Date(tsMs);
+  const pad = n => String(n).padStart(2, '0');
+  if (bucket === 'day') return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fmtTs(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function runAnalysis() {
+  if (!allAlarms.length) return;
+  const levels = chosenLevels();
+  const devFilterRaw = document.getElementById('deviceFilter').value.trim();
+  const devFilter = devFilterRaw ? new Set(devFilterRaw.split(',').map(s => s.trim()).filter(Boolean)) : null;
+  const topN = Math.max(1, parseInt(document.getElementById('topN').value, 10) || 8);
+
+  const filtered = allAlarms.filter(a =>
+    levels.includes(a.level) &&
+    (!devFilter || devFilter.has(a.unitID))
+  );
+
+  if (!filtered.length) {
+    document.getElementById('runInfo').innerHTML = '<span class="warn">過濾後沒有資料</span>';
+    return;
+  }
+
+  // Aggregate by (code, subCode)
+  const groupMap = new Map();
+  for (const a of filtered) {
+    const key = `${a.code}|${a.subCode}`;
+    let g = groupMap.get(key);
+    if (!g) {
+      g = {
+        key, code: a.code, subCode: a.subCode, level: a.level,
+        cause: a.cause, detail: a.detail,
+        count: 0, first: a.ts, last: a.ts,
+        devices: new Map(), // unitID -> count
+      };
+      groupMap.set(key, g);
+    }
+    g.count++;
+    if (a.ts < g.first) g.first = a.ts;
+    if (a.ts > g.last)  { g.last = a.ts; g.detail = a.detail; g.cause = a.cause; g.level = a.level; }
+    if (a.unitID) g.devices.set(a.unitID, (g.devices.get(a.unitID) || 0) + 1);
+  }
+  const groups = Array.from(groupMap.values());
+  lastGroups = groups;
+
+  renderSummary(filtered);
+  renderTable(groups);
+  renderChart(filtered, groups, topN);
+  document.getElementById('exportBtn').disabled = false;
+  document.getElementById('runInfo').innerHTML = `分析完成 (${new Date().toLocaleTimeString()})`;
+}
+
+function renderSummary(filtered) {
+  const byLevel = { Serious: 0, Error: 0, Warning: 0, Info: 0 };
+  const devices = new Set();
+  const codes = new Set();
+  let minTs = Infinity, maxTs = -Infinity;
+  for (const a of filtered) {
+    byLevel[a.level] = (byLevel[a.level] || 0) + 1;
+    if (a.unitID) devices.add(a.unitID);
+    codes.add(a.code);
+    const t = a.ts.getTime();
+    if (t < minTs) minTs = t;
+    if (t > maxTs) maxTs = t;
+  }
+  const spanHours = ((maxTs - minTs) / 3.6e6);
+  const boxes = [
+    { cls: '', label: 'Total Alarms', value: filtered.length, sub: `${codes.size} 種 code · ${devices.size} 個 device` },
+    { cls: 'serious', label: 'Serious', value: byLevel.Serious, sub: '' },
+    { cls: 'error', label: 'Error', value: byLevel.Error, sub: '' },
+    { cls: 'warning', label: 'Warning', value: byLevel.Warning, sub: '' },
+    { cls: 'info', label: 'Info', value: byLevel.Info || 0, sub: '' },
+    { cls: '', label: 'Time Range', value: spanHours < 1 ? `${Math.round(spanHours * 60)} min` : `${spanHours.toFixed(1)} h`, sub: `${fmtTs(minTs)} → ${fmtTs(maxTs)}` },
+  ];
+  document.getElementById('summaryGrid').innerHTML = boxes.map(b =>
+    `<div class="stat-box ${b.cls}"><div class="label">${escapeHtml(b.label)}</div><div class="value">${b.value}</div><div class="sub">${escapeHtml(b.sub)}</div></div>`
+  ).join('');
+  document.getElementById('summaryCard').style.display = 'block';
+}
+
+function renderTable(groups) {
+  const dir = sortState.dir === 'asc' ? 1 : -1;
+  const key = sortState.key;
+  const sorted = [...groups].sort((a, b) => {
+    let av, bv;
+    if (key === 'count') { av = a.count; bv = b.count; }
+    else if (key === 'first' || key === 'last') { av = a[key].getTime(); bv = b[key].getTime(); }
+    else { av = String(a[key] ?? ''); bv = String(b[key] ?? ''); }
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return av.localeCompare(bv, undefined, { numeric: true }) * dir;
+  });
+
+  // Update header arrows
+  document.querySelectorAll('#statTable thead th').forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (th.dataset.sort === key) th.classList.add(sortState.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+  });
+
+  const rows = sorted.map(g => {
+    const devs = Array.from(g.devices.entries()).sort((a, b) => b[1] - a[1]);
+    const top = devs.slice(0, 3).map(([d, n]) => `${d}(${n})`).join(', ');
+    const extra = devs.length > 3 ? ` <span class="small">+${devs.length - 3}</span>` : '';
+    return `<tr>
+      <td class="mono">${g.code}</td>
+      <td class="mono">${escapeHtml(g.subCode)}</td>
+      <td><span class="level-badge level-${g.level}">${g.level}</span></td>
+      <td>${escapeHtml(g.cause)}</td>
+      <td>${escapeHtml(g.detail)}</td>
+      <td class="num"><b>${g.count}</b></td>
+      <td class="mono">${fmtTs(g.first)}</td>
+      <td class="mono">${fmtTs(g.last)}</td>
+      <td>${escapeHtml(top)}${extra}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('statBody').innerHTML = rows || '<tr><td colspan="9" style="text-align:center; padding:20px" class="small">沒有資料</td></tr>';
+  document.getElementById('tableCard').style.display = 'block';
+}
+
+function renderChart(filtered, groups, topN) {
+  const minTs = filtered.reduce((m, a) => Math.min(m, a.ts.getTime()), Infinity);
+  const maxTs = filtered.reduce((m, a) => Math.max(m, a.ts.getTime()), -Infinity);
+  const bucket = pickBucket(minTs, maxTs);
+  const step = bucketMs(bucket);
+  const start = floorToBucket(minTs, bucket);
+  const end = floorToBucket(maxTs, bucket);
+  const bucketKeys = [];
+  for (let t = start; t <= end; t += step) bucketKeys.push(t);
+  const labels = bucketKeys.map(t => fmtBucketLabel(t, bucket));
+
+  const topGroups = [...groups].sort((a, b) => b.count - a.count).slice(0, topN);
+  const topKeys = new Set(topGroups.map(g => g.key));
+
+  // Build per-key time series (top N)
+  const seriesMap = new Map();
+  for (const g of topGroups) seriesMap.set(g.key, new Array(bucketKeys.length).fill(0));
+  const othersSeries = new Array(bucketKeys.length).fill(0);
+  let hasOthers = false;
+
+  for (const a of filtered) {
+    const key = `${a.code}|${a.subCode}`;
+    const b = floorToBucket(a.ts.getTime(), bucket);
+    const idx = Math.round((b - start) / step);
+    if (idx < 0 || idx >= bucketKeys.length) continue;
+    if (seriesMap.has(key)) {
+      seriesMap.get(key)[idx]++;
+    } else {
+      othersSeries[idx]++;
+      hasOthers = true;
+    }
+  }
+
+  // Palette (color per series)
+  const palette = ['#4a9eff','#ff6b6b','#4ade80','#f5d76e','#ffa657','#c084fc','#22d3ee','#f472b6','#a3e635','#fb923c','#94a3b8','#e879f9'];
+  const datasets = [];
+  let ci = 0;
+  for (const g of topGroups) {
+    datasets.push({
+      label: `${g.code}${g.subCode ? '/' + g.subCode : ''}`,
+      data: seriesMap.get(g.key),
+      borderColor: palette[ci % palette.length],
+      backgroundColor: palette[ci % palette.length] + '33',
+      tension: 0.2,
+      pointRadius: 2.5,
+    });
+    ci++;
+  }
+  if (hasOthers) {
+    datasets.push({
+      label: 'Others',
+      data: othersSeries,
+      borderColor: '#8a9099',
+      backgroundColor: '#8a909933',
+      borderDash: [4, 4],
+      tension: 0.2,
+      pointRadius: 2,
+    });
+  }
+
+  if (chart) { chart.destroy(); chart = null; }
+  const ctx = document.getElementById('alarmChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#d8dde3', font: { size: 13 } } },
+        title: { display: true, text: `時間桶: ${bucket} · ${bucketKeys.length} 個 bucket`, color: '#8a9099', font: { size: 12 } },
+        tooltip: { titleFont: { size: 13 }, bodyFont: { size: 12 } },
+      },
+      scales: {
+        x: { ticks: { color: '#8a9099', maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 }, grid: { color: '#3a4048' } },
+        y: { beginAtZero: true, ticks: { color: '#8a9099', precision: 0 }, grid: { color: '#3a4048' } },
+      },
+    },
+  });
+  document.getElementById('chartCard').style.display = 'block';
+}
+
+// ==================== CSV export ====================
+function csvCell(v) {
+  const s = v == null ? '' : String(v);
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function exportCSV() {
+  if (!lastGroups.length) return;
+  const header = ['Code','SubCode','Level','Cause','Detail','Count','First','Last','Devices'];
+  const lines = [header.join(',')];
+  for (const g of lastGroups) {
+    const devs = Array.from(g.devices.entries()).sort((a, b) => b[1] - a[1]).map(([d, n]) => `${d}(${n})`).join('; ');
+    lines.push([g.code, g.subCode, g.level, g.cause, g.detail, g.count, fmtTs(g.first), fmtTs(g.last), devs].map(csvCell).join(','));
+  }
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `alarm_stats_${Date.now()}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>

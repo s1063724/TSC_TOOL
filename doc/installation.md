@@ -1,6 +1,6 @@
 # 安裝教學
 
-從零把 Dispatch 派令產生器部署到一台新機器上,包含 Flask 後端 + MariaDB preset 儲存 + systemd 自動啟動。
+從零把 TSC TOOL部署到一台新機器上,包含 Flask 後端 + MariaDB preset 儲存 + systemd 自動啟動。
 
 **適用情境:**
 - 換機、重灌後重新部署
@@ -52,30 +52,30 @@
 在來源機器打包 (排除 output/ 和 config.ini — 目標機器要重新設):
 ```bash
 cd /home/mcsadmin
-tar czf dispatch_generator.tar.gz \
-    --exclude='dispatch_generator/output/*' \
-    --exclude='dispatch_generator/config.ini' \
-    --exclude='dispatch_generator/__pycache__' \
-    dispatch_generator/
+tar czf TSC_TOOL.tar.gz \
+    --exclude='TSC_TOOL/output/*' \
+    --exclude='TSC_TOOL/config.ini' \
+    --exclude='TSC_TOOL/__pycache__' \
+    TSC_TOOL/
 ```
 
 `scp` 過去:
 ```bash
-scp dispatch_generator.tar.gz mcsadmin@<新機器IP>:/home/mcsadmin/
+scp TSC_TOOL.tar.gz mcsadmin@<新機器IP>:/home/mcsadmin/
 ```
 
 在新機器解壓:
 ```bash
 cd /home/mcsadmin
-tar xzf dispatch_generator.tar.gz
-mkdir -p dispatch_generator/output
+tar xzf TSC_TOOL.tar.gz
+mkdir -p TSC_TOOL/output
 ```
 
 ### 方式 B:WinSCP / MobaXterm 手動拉
 
-複製整個 `dispatch_generator/` 目錄。**應包含:**
+複製整個 `TSC_TOOL/` 目錄。**應包含:**
 ```
-dispatch_generator/
+TSC_TOOL/
 ├── README.md
 ├── app.py                          Flask 後端
 ├── index.html                      前端
@@ -124,9 +124,9 @@ python3 -c "import flask, pymysql, openpyxl; print('flask', flask.__version__); 
 ### 給檔案執行權限
 
 ```bash
-chmod +x /home/mcsadmin/dispatch_generator/serve.sh
-chmod +x /home/mcsadmin/dispatch_generator/app.py
-chmod +x /home/mcsadmin/dispatch_generator/generate.py
+chmod +x /home/mcsadmin/TSC_TOOL/serve.sh
+chmod +x /home/mcsadmin/TSC_TOOL/app.py
+chmod +x /home/mcsadmin/TSC_TOOL/generate.py
 ```
 
 ---
@@ -147,7 +147,7 @@ ss -tln | grep :3306      # 有 3306 就 OK
 用你有權限的 DB 帳號執行 `schema.sql`:
 
 ```bash
-mysql -u root -p < /home/mcsadmin/dispatch_generator/schema.sql
+mysql -u root -p < /home/mcsadmin/TSC_TOOL/schema.sql
 ```
 
 或手動建:
@@ -155,9 +155,9 @@ mysql -u root -p < /home/mcsadmin/dispatch_generator/schema.sql
 mysql -u root -p
 ```
 ```sql
-CREATE DATABASE IF NOT EXISTS dispatch_generator
+CREATE DATABASE IF NOT EXISTS tsc_tool
     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE dispatch_generator;
+USE tsc_tool;
 CREATE TABLE presets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
@@ -173,8 +173,8 @@ CREATE TABLE presets (
 
 避免 app.py 直接用 root。建立 dedicated user:
 ```sql
-CREATE USER 'dispatch_gen'@'localhost' IDENTIFIED BY '<你設的密碼>';
-GRANT SELECT, INSERT, UPDATE, DELETE ON dispatch_generator.* TO 'dispatch_gen'@'localhost';
+CREATE USER 'tsc_tool'@'localhost' IDENTIFIED BY '<你設的密碼>';
+GRANT SELECT, INSERT, UPDATE, DELETE ON tsc_tool.* TO 'tsc_tool'@'localhost';
 FLUSH PRIVILEGES;
 ```
 之後 config.ini 用這個帳號,權限只夠讀寫這一個 DB。
@@ -182,7 +182,7 @@ FLUSH PRIVILEGES;
 ### 3-4. 驗證
 
 ```bash
-mysql -u root -p dispatch_generator -e "SHOW TABLES; DESC presets;"
+mysql -u root -p tsc_tool -e "SHOW TABLES; DESC presets;"
 ```
 應看到 `presets` table 和欄位定義。
 
@@ -194,24 +194,24 @@ mysql -u root -p dispatch_generator -e "SHOW TABLES; DESC presets;"
 
 建立 config.ini:
 ```bash
-cat > /home/mcsadmin/dispatch_generator/config.ini <<'EOF'
+cat > /home/mcsadmin/TSC_TOOL/config.ini <<'EOF'
 [db]
 host = 127.0.0.1
 port = 3306
 user = root
 password = <你的DB密碼>
-database = dispatch_generator
+database = tsc_tool
 
 [server]
 host = 0.0.0.0
 port = 9000
 EOF
-chmod 600 /home/mcsadmin/dispatch_generator/config.ini
+chmod 600 /home/mcsadmin/TSC_TOOL/config.ini
 ```
 
 檢查:
 ```bash
-ls -la /home/mcsadmin/dispatch_generator/config.ini
+ls -la /home/mcsadmin/TSC_TOOL/config.ini
 # 應顯示 -rw------- (600),只有你能讀
 ```
 
@@ -222,7 +222,7 @@ ls -la /home/mcsadmin/dispatch_generator/config.ini
 ### 5-1. 前景測試
 
 ```bash
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 ./serve.sh
 ```
 
@@ -231,7 +231,7 @@ cd /home/mcsadmin/dispatch_generator
 ### 5-2. 背景常駐 (簡易版,不建議正式使用)
 
 ```bash
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 setsid python3 app.py > /tmp/flask.log 2>&1 < /dev/null &
 ```
 
@@ -292,7 +292,7 @@ sudo firewall-cmd --reload
 
 Windows 瀏覽器打開網站,應看到:
 
-- 標題 **Dispatch 派令產生器** (暗色主題)
+- 標題 **TSC TOOL** (暗色主題)
 - **Preset 管理** card (Author 欄位 + Preset 下拉 + 5 個按鈕)
 - **Step 1. 上傳 Workstation xlsx**
 
@@ -307,12 +307,12 @@ Windows 瀏覽器打開網站,應看到:
 
 **DB 端驗證:**
 ```bash
-mysql -u root -p dispatch_generator -e "SELECT name, updated_by, updated_at FROM presets;"
+mysql -u root -p tsc_tool -e "SELECT name, updated_by, updated_at FROM presets;"
 ```
 
 **CLI 版驗證:**
 ```bash
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 python3 generate.py --max-rows 10 -o /tmp/test.csv
 head /tmp/test.csv
 ```
@@ -327,19 +327,19 @@ head /tmp/test.csv
 
 ```bash
 mkdir -p ~/.config/systemd/user/
-cat > ~/.config/systemd/user/dispatch-generator.service <<'EOF'
+cat > ~/.config/systemd/user/tsc-tool.service <<'EOF'
 [Unit]
-Description=Dispatch Generator Flask Web Server
+Description=TSC TOOL Flask Web Server
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/mcsadmin/dispatch_generator
-ExecStart=/usr/bin/python3 /home/mcsadmin/dispatch_generator/app.py
+WorkingDirectory=/home/mcsadmin/TSC_TOOL
+ExecStart=/usr/bin/python3 /home/mcsadmin/TSC_TOOL/app.py
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:/tmp/dispatch-generator.log
-StandardError=append:/tmp/dispatch-generator.log
+StandardOutput=append:/tmp/tsc-tool.log
+StandardError=append:/tmp/tsc-tool.log
 
 [Install]
 WantedBy=default.target
@@ -357,9 +357,9 @@ pkill -f 'python3 app.py'
 ```bash
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 systemctl --user daemon-reload
-systemctl --user enable dispatch-generator.service
-systemctl --user start dispatch-generator.service
-systemctl --user status dispatch-generator.service     # active (running) 就 OK
+systemctl --user enable tsc-tool.service
+systemctl --user start tsc-tool.service
+systemctl --user status tsc-tool.service     # active (running) 就 OK
 ```
 
 ### 8-3. 讓服務登出後仍常駐 (要 sudo)
@@ -376,11 +376,11 @@ loginctl show-user mcsadmin -p Linger    # 應為 Linger=yes
 ### 8-4. 常用管理指令
 
 ```bash
-systemctl --user restart dispatch-generator     # 重啟 (改 code/config 後)
-systemctl --user stop dispatch-generator        # 停
-systemctl --user disable dispatch-generator     # 取消開機啟動
-journalctl --user -u dispatch-generator -f      # 看即時 log
-tail -f /tmp/dispatch-generator.log             # 或看檔案 log
+systemctl --user restart tsc-tool     # 重啟 (改 code/config 後)
+systemctl --user stop tsc-tool        # 停
+systemctl --user disable tsc-tool     # 取消開機啟動
+journalctl --user -u tsc-tool -f      # 看即時 log
+tail -f /tmp/tsc-tool.log             # 或看檔案 log
 ```
 
 ---
@@ -390,19 +390,19 @@ tail -f /tmp/dispatch-generator.log             # 或看檔案 log
 ### 備份
 
 ```bash
-mysqldump -u root -p dispatch_generator > ~/backup/dispatch_gen_$(date +%Y%m%d).sql
+mysqldump -u root -p tsc_tool > ~/backup/tsc_tool_$(date +%Y%m%d).sql
 ```
 建議加到 cron 每天自動備份:
 ```bash
 crontab -e
 # 加入:
-0 2 * * * mysqldump -u root -p'<密碼>' dispatch_generator > /home/mcsadmin/backup/dispatch_gen_$(date +\%Y\%m\%d).sql
+0 2 * * * mysqldump -u root -p'<密碼>' tsc_tool > /home/mcsadmin/backup/tsc_tool_$(date +\%Y\%m\%d).sql
 ```
 
 ### 還原
 
 ```bash
-mysql -u root -p dispatch_generator < ~/backup/dispatch_gen_20260911.sql
+mysql -u root -p tsc_tool < ~/backup/tsc_tool_20260911.sql
 ```
 
 ### 匯出/匯入單一 preset 給同事
@@ -432,9 +432,9 @@ EOF
 
 ### 停 systemd service
 ```bash
-systemctl --user stop dispatch-generator
-systemctl --user disable dispatch-generator
-rm ~/.config/systemd/user/dispatch-generator.service
+systemctl --user stop tsc-tool
+systemctl --user disable tsc-tool
+rm ~/.config/systemd/user/tsc-tool.service
 systemctl --user daemon-reload
 sudo loginctl disable-linger mcsadmin      # 如果有開 linger
 ```
@@ -446,9 +446,9 @@ pkill -f 'python3 app.py'
 
 ### 刪 DB (**警告:preset 資料全消失**)
 ```bash
-mysql -u root -p -e "DROP DATABASE dispatch_generator;"
+mysql -u root -p -e "DROP DATABASE tsc_tool;"
 # (選用) 刪 dedicated user:
-mysql -u root -p -e "DROP USER 'dispatch_gen'@'localhost';"
+mysql -u root -p -e "DROP USER 'tsc_tool'@'localhost';"
 ```
 
 ### 關防火牆 port
@@ -459,7 +459,7 @@ sudo firewall-cmd --reload
 
 ### 刪檔
 ```bash
-rm -rf /home/mcsadmin/dispatch_generator
+rm -rf /home/mcsadmin/TSC_TOOL
 ```
 
 ### 移除 pip 套件
@@ -502,9 +502,9 @@ mysql -u <config裡的user> -p<config裡的password> -e "SELECT USER();"
 ### Q7. Flask 起來但 `/api/health` 回 500
 DB 連線問題。看 log:
 ```bash
-journalctl --user -u dispatch-generator -n 50
+journalctl --user -u tsc-tool -n 50
 # 或
-tail -30 /tmp/dispatch-generator.log
+tail -30 /tmp/tsc-tool.log
 ```
 通常是 config.ini 打錯或 DB service 沒跑。
 
@@ -514,7 +514,7 @@ tail -30 /tmp/dispatch-generator.log
 ### Q9. 網頁 SheetJS 沒載入 (Step 2 沒 zone 出現)
 現場無外網。把 SheetJS 下載到本地:
 ```bash
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 curl -o xlsx.full.min.js https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js
 ```
 改 `index.html`:

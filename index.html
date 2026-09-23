@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="color-scheme" content="dark">
-<title>Dispatch 派令產生器</title>
+<title>TSC TOOL</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
@@ -25,53 +25,106 @@
     --code-text: #b2ccd6;
   }
   html, body { background: var(--bg); }
-  body { font-family: -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; width: 95%; max-width: 1800px; margin: 20px auto; padding: 0 16px; color: var(--text); font-size: 16px; }
-  h1 { font-size: 26px; color: var(--text-heading); font-weight: 600; }
-  h2 { font-size: 19px; margin-top: 0; margin-bottom: 10px; color: var(--text-heading); font-weight: 600; }
+  body { font-family: -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; width: 95%; max-width: 1800px; margin: 20px auto; padding: 0 16px; color: var(--text); font-size: 14pt; }
+  h1 { font-size: 22pt; color: var(--text-heading); font-weight: 600; }
+  h2 { font-size: 16pt; margin-top: 0; margin-bottom: 10px; color: var(--text-heading); font-weight: 600; }
   .card { border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin: 14px 0; background: var(--bg-card); }
-  label { font-size: 16px; display: inline-block; margin-right: 12px; }
+  label { font-size: 14pt; display: inline-block; margin-right: 12px; }
   input[type=text], input[type=number], select {
-    padding: 7px 10px; font-size: 16px;
+    padding: 8px 12px; font-size: 14pt;
     background: var(--bg-input); color: var(--text);
     border: 1px solid var(--border-input); border-radius: 3px;
   }
   input[type=text]:focus, input[type=number]:focus, select:focus {
     outline: none; border-color: var(--accent);
   }
-  input[type=file] { color: var(--text); font-size: 16px; }
+  input[type=file] { color: var(--text); font-size: 14pt; }
   input[type=file]::file-selector-button {
     background: var(--bg-input); color: var(--text);
     border: 1px solid var(--border-input); border-radius: 3px;
-    padding: 7px 14px; font-size: 16px; cursor: pointer; margin-right: 10px;
+    padding: 8px 16px; font-size: 14pt; cursor: pointer; margin-right: 10px;
   }
   input[type=file]::file-selector-button:hover { background: var(--border); }
-  input[type=checkbox] { accent-color: var(--accent); transform: scale(1.2); margin: 0 4px; }
-  code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-size: 15px; color: var(--code-text); }
-  button { padding: 10px 20px; font-size: 16px; background: var(--accent); color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-weight: 500; }
+  input[type=checkbox] { accent-color: var(--accent); transform: scale(1.3); margin: 0 4px; }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-size: 13pt; color: var(--code-text); }
+  button { padding: 10px 22px; font-size: 14pt; background: var(--accent); color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-weight: 500; }
   button:hover:not(:disabled) { background: var(--accent-hover); }
   button:disabled { background: var(--accent-disabled); color: var(--text-dim); cursor: not-allowed; }
   .zone-row { display: flex; align-items: center; margin: 8px 0; flex-wrap: wrap; gap: 10px; }
-  .zone-chip { display: inline-block; background: var(--bg-chip); color: #b8d4f5; padding: 4px 12px; border-radius: 4px; font-size: 15px; min-width: 260px; }
-  .log { font-family: Menlo, Consolas, monospace; font-size: 14px; background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 4px; max-height: 320px; overflow: auto; white-space: pre; border: 1px solid var(--border); }
+  .zone-chip { display: inline-block; background: var(--bg-chip); color: #b8d4f5; padding: 4px 12px; border-radius: 4px; font-size: 13pt; min-width: 260px; }
+  .log { font-family: Menlo, Consolas, monospace; font-size: 11pt; background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 4px; max-height: 320px; overflow: auto; white-space: pre; border: 1px solid var(--border); }
   .row { margin: 10px 0; }
-  .small { font-size: 14px; color: var(--text-dim); margin-top: 8px; }
+  .small { font-size: 11pt; color: var(--text-dim); margin-top: 8px; }
   .warn { color: var(--warn); }
   hr.sep { border: 0; border-top: 1px dashed var(--border); margin: 12px 0; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border-input); border-radius: 5px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+  .tabs { display: flex; gap: 6px; margin: 18px 0 -1px; border-bottom: 1px solid var(--border); }
+  .tab-btn { background: var(--bg); color: var(--text-dim); border: 1px solid var(--border); border-bottom: 0; border-radius: 6px 6px 0 0; padding: 10px 26px; cursor: pointer; font-size: 13pt; font-weight: 500; }
+  .tab-btn.active { background: var(--bg-card); color: var(--accent); position: relative; top: 1px; }
+  .tab-btn:hover:not(.active) { color: var(--text); background: var(--bg-input); }
+  .manual-picker { display: flex; gap: 16px; margin: 12px 0; }
+  .picker-col { flex: 1; min-width: 0; }
+  .picker-col h3 { font-size: 14pt; margin: 6px 0 10px; color: var(--text-heading); font-weight: 600; }
+  .picker-col .eq-sel-row { margin: 8px 0; display: flex; align-items: center; gap: 8px; }
+  .picker-col .eq-sel-row select { flex: 1; min-width: 0; font-size: 14pt; }
+  .picker-col input[type=text].search { width: 100%; box-sizing: border-box; margin-top: 8px; font-size: 13pt; }
+  .port-tree { max-height: 320px; overflow: auto; border: 1px solid var(--border-input); border-radius: 4px; background: var(--bg-input); padding: 8px; margin-top: 8px; }
+  .port-item { padding: 6px 14px; cursor: pointer; font-family: Menlo, Consolas, monospace; font-size: 13pt; border-radius: 3px; margin: 2px 0; color: var(--code-text); }
+  .port-item:hover { background: var(--bg-chip); }
+  .port-item.picked { background: var(--accent); color: #fff; font-weight: 600; }
+  .port-hint { padding: 20px; text-align: center; color: var(--text-dim); font-style: italic; font-size: 12pt; }
+  .picked-label { color: var(--accent); font-family: Menlo, Consolas, monospace; font-size: 13pt; margin-left: 8px; }
+  .picked-label.empty { color: var(--text-dim); font-style: italic; font-family: inherit; }
+  #pairTable { width: 100%; border-collapse: collapse; font-size: 13pt; }
+  #pairTable th { text-align: left; padding: 10px 14px; background: var(--bg-input); position: sticky; top: 0; color: var(--text-heading); font-weight: 600; font-size: 13pt; }
+  #pairTable td { padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  #pairTable tbody tr:hover { background: var(--bg-input); }
+  .btn-sm { padding: 6px 14px; font-size: 11pt; }
+  .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border-input); }
+  .btn-secondary:hover:not(:disabled) { background: var(--border); }
+  .site-header {
+    display: flex; align-items: center; gap: 24px;
+    padding: 14px 40px;
+    background: #0f1622;
+    border-bottom: 2px solid var(--accent);
+    margin-top: -20px;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-bottom: 22px;
+    width: 100vw; box-sizing: border-box;
+  }
+  .site-header .brand { font-size: 16pt; font-weight: 600; color: var(--text-heading); letter-spacing: 0.5px; }
+  .site-header nav { display: flex; gap: 6px; }
+  .site-header nav a { padding: 8px 18px; border-radius: 4px; text-decoration: none; color: var(--text-dim); font-size: 13pt; font-weight: 500; border: 1px solid transparent; }
+  .site-header nav a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .site-header nav a.active { color: var(--accent); background: rgba(74,158,255,0.12); border-color: rgba(74,158,255,0.35); }
 </style>
 </head>
 <body>
 
-<h1>Dispatch 派令產生器</h1>
-<div class="small">依 Workstation xlsx 產生 Source/Dest 兩兩配對的派令 CSV。所有處理都在瀏覽器內完成。</div>
+<header class="site-header">
+  <div class="brand">TSC TOOL</div>
+  <nav>
+    <a href="/" class="active">派令產生</a>
+    <a href="/check">檢查重複設定</a>
+    <a href="/stats">異常統計</a>
+  </nav>
+</header>
+
+<div class="small" style="margin-bottom:10px">依 Workstation xlsx 產生 Source/Dest 兩兩配對的派令 CSV。所有處理都在瀏覽器內完成。</div>
 
 <div class="card">
   <h2>Step 1. 上傳 Workstation xlsx</h2>
   <input type="file" id="fileInput" accept=".xlsx,.xls">
   <div id="fileInfo" class="small"></div>
+</div>
+
+<div class="tabs" id="modeTabs" style="display:none">
+  <button class="tab-btn active" data-tab="auto" type="button">自動兩兩配對</button>
+  <button class="tab-btn" data-tab="manual" type="button">手動選 Port</button>
 </div>
 
 <div class="card" id="poolConfig" style="display:none">
@@ -86,6 +139,70 @@
   <div class="small">上傳 xlsx 後自動從 DB 套用上次的設定;匯入 CSV 後自動存回 DB (跨使用者共用)。</div>
   <hr class="sep">
   <div id="poolList"></div>
+</div>
+
+<div class="card" id="manualMode" style="display:none">
+  <h2>手動選 Port 配對 (按 Equipment 分組)</h2>
+  <div class="small">左樹選 Source、右樹選 Dest,按「加入配對」累積成清單;Carrier Type 依 Source 所屬 Pool 決定 (Step 2)。</div>
+  <div class="manual-picker">
+    <div class="picker-col">
+      <h3>Source <span id="pickedSrcLabel" class="picked-label empty">未選</span></h3>
+      <div class="eq-sel-row">
+        <label style="margin:0">Equipment:</label>
+        <select id="srcEqSel"><option value="">-- 請先選 Equipment --</option></select>
+      </div>
+      <input type="text" class="search" id="srcSearch" placeholder="在此 Equipment 底下搜尋 Port...">
+      <div id="srcTree" class="port-tree"></div>
+    </div>
+    <div class="picker-col">
+      <h3>Dest <span id="pickedDstLabel" class="picked-label empty">未選</span></h3>
+      <div class="eq-sel-row">
+        <label style="margin:0">Equipment:</label>
+        <select id="dstEqSel"><option value="">-- 請先選 Equipment --</option></select>
+      </div>
+      <input type="text" class="search" id="dstSearch" placeholder="在此 Equipment 底下搜尋 Port...">
+      <div id="dstTree" class="port-tree"></div>
+    </div>
+  </div>
+  <div class="row" style="display:flex; align-items:center; flex-wrap:wrap; gap:10px">
+    <label style="margin:0">CID 數: <input type="number" id="newPairCids" value="1" min="1" max="20" style="width:70px"></label>
+    <button id="addPairBtn" type="button" disabled>加入配對</button>
+    <button id="swapPickedBtn" type="button" class="btn-secondary" disabled>Source ⇄ Dest 對調</button>
+    <span id="pickHint" class="small" style="margin-left:6px">請先在左右樹中各選一個 Port</span>
+  </div>
+  <hr class="sep">
+  <div class="row">
+    <label style="display:block; margin-bottom:6px"><b>快速貼上多筆配對</b> — 每行一組 <code>Source,Dest</code>(第一行可為表頭)。也支援 <code>Tab</code> 或空格分隔。</label>
+    <textarea id="pastePairs" rows="5" style="width:100%; box-sizing:border-box; font-family:Menlo,Consolas,monospace; font-size:11pt; padding:8px; background:var(--bg-input); color:var(--text); border:1px solid var(--border-input); border-radius:3px" placeholder="Source,Dest
+MGZ_07_001,E0174139_I1
+MGZ_07_001,E0174139_I2
+..."></textarea>
+    <div style="margin-top:8px">
+      <button id="pasteAddBtn" type="button">貼上加入</button>
+      <button id="clearPasteBtn" type="button" class="btn-secondary btn-sm">清空貼上區</button>
+      <span id="pasteInfo" class="small" style="margin-left:8px"></span>
+    </div>
+  </div>
+  <hr class="sep">
+  <div class="row" style="display:flex; align-items:center; flex-wrap:wrap; gap:10px">
+    <h3 style="margin:0; font-size:14pt; color:var(--text-heading)">已加入 <span id="pairCount">0</span> 筆配對</h3>
+    <button id="clearPairsBtn" type="button" class="btn-secondary btn-sm">清空</button>
+    <button id="exportPairsBtn" type="button" class="btn-secondary btn-sm">匯出配對 CSV</button>
+    <button id="importPairsBtn" type="button" class="btn-secondary btn-sm">匯入配對 CSV</button>
+    <input type="file" id="importPairsFile" accept=".csv,text/csv" style="display:none">
+    <span style="margin-left:12px">全部設為 <input type="number" id="bulkCids" value="1" min="1" max="20" style="width:70px"> 個 CID <button id="applyBulkCidsBtn" type="button" class="btn-secondary btn-sm">套用</button></span>
+    <span id="pairInfo" class="small" style="margin-left:6px"></span>
+  </div>
+  <div style="max-height:320px; overflow:auto; border:1px solid var(--border); border-radius:4px; margin-top:8px">
+    <table id="pairTable">
+      <thead><tr><th>#</th><th>Source</th><th>Dest</th><th>Carrier Type</th><th>CID 數</th><th></th></tr></thead>
+      <tbody id="pairBody"><tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim)">清單是空的</td></tr></tbody>
+    </table>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <button id="genManualBtnInline" type="button">產生手動配對 CSV</button>
+    <span id="manualGenInfo" class="small" style="margin-left:10px"></span>
+  </div>
 </div>
 
 <div class="card" id="ruleConfig" style="display:none">
@@ -135,6 +252,7 @@
 <div class="card" id="generate" style="display:none">
   <h2>Step 4. 產生 &amp; 下載</h2>
   <button id="genBtn">產生並下載 CSV</button>
+  <button id="genManualBtn" style="display:none">產生手動配對 CSV</button>
   <div id="stats" class="small"></div>
   <div id="previewWrap" style="display:none">
     <div class="small" style="margin-top:8px">預覽 (前 10 筆):</div>
@@ -144,9 +262,19 @@
 
 <script>
 let devicesByZone = {};
+let equipmentDevices = {};      // Equipment_ID → [Device_ID]
+let deviceToEquipment = {};     // Device_ID → Equipment_ID
+let deviceToZoneMap = {};       // Device_ID → Zone_ID
+let manualPairs = [];
+let pickedSrc = null;
+let pickedDst = null;
 
 document.getElementById('fileInput').addEventListener('change', handleFile);
 document.getElementById('genBtn').addEventListener('click', generate);
+
+function naturalSort(a, b) {
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+}
 
 function isEnabledCell(v) {
   return v === true || v === 1 || v === '1' ||
@@ -165,22 +293,37 @@ function handleFile(e) {
       const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
 
       devicesByZone = {};
+      equipmentDevices = {};
+      deviceToEquipment = {};
+      deviceToZoneMap = {};
       let totalEnabled = 0;
       for (const r of rows) {
         if (!isEnabledCell(r['Enabled'])) continue;
         const did = r['Device_ID'];
         const zid = r['Zone_ID'];
         if (!did || !zid) continue;
+        const eid = String(r['Equipment_ID'] || '(未指定)');
+        const didStr = String(did);
         if (!devicesByZone[zid]) devicesByZone[zid] = [];
-        devicesByZone[zid].push(String(did));
+        devicesByZone[zid].push(didStr);
+        if (!equipmentDevices[eid]) equipmentDevices[eid] = [];
+        equipmentDevices[eid].push(didStr);
+        deviceToEquipment[didStr] = eid;
+        deviceToZoneMap[didStr] = zid;
         totalEnabled++;
       }
 
       const zoneCount = Object.keys(devicesByZone).length;
+      const eqCount = Object.keys(equipmentDevices).length;
       document.getElementById('fileInfo').innerHTML =
-        `讀取 <b>${rows.length}</b> 筆,Enabled=<b>${totalEnabled}</b>,分 <b>${zoneCount}</b> 個 Zone (檔案 <code>${file.name}</code>)`;
+        `讀取 <b>${rows.length}</b> 筆,Enabled=<b>${totalEnabled}</b>,分 <b>${zoneCount}</b> 個 Zone / <b>${eqCount}</b> 個 Equipment (檔案 <code>${file.name}</code>)`;
 
       renderPoolConfig();
+      pickedSrc = null; pickedDst = null;
+      manualPairs = [];
+      renderPortTrees();
+      renderPairList();
+      document.getElementById('modeTabs').style.display = 'flex';
       document.getElementById('poolConfig').style.display = 'block';
       document.getElementById('ruleConfig').style.display = 'block';
       document.getElementById('generate').style.display = 'block';
@@ -194,7 +337,7 @@ function handleFile(e) {
 }
 
 function renderPoolConfig() {
-  const zones = Object.keys(devicesByZone).sort();
+  const zones = Object.keys(devicesByZone).sort(naturalSort);
   const el = document.getElementById('poolList');
   el.innerHTML = '';
   for (const z of zones) {
@@ -529,7 +672,7 @@ function doGenerate() {
   const zoneStats = [];
   const previewLines = [];
   let firstZone = true;
-  for (const z of Object.keys(pairsByZone).sort()) {
+  for (const z of Object.keys(pairsByZone).sort(naturalSort)) {
     const { csv, numBatches, previewLines: pl } = buildCsvForPairs(pairsByZone[z]);
     const fname = `dispatch_${z}.csv`;
     zip.file(fname, csv);
@@ -653,7 +796,7 @@ function exportPoolCSV() {
     return;
   }
   const aoa = [['Zone_ID', 'Pool', 'Carrier_Type', 'Max_Carriers', 'Device_Count']];
-  for (const z of Object.keys(devicesByZone).sort()) {
+  for (const z of Object.keys(devicesByZone).sort(naturalSort)) {
     const poolInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
     const ctypeInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
     const mcInp = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="maxcarriers"]`);
@@ -764,6 +907,375 @@ async function saveExcludeToDB() {
   }
 }
 
+// ==================== Manual Port Picker Mode ====================
+function currentMode() {
+  const btn = document.querySelector('.tab-btn.active');
+  return btn ? btn.dataset.tab : 'auto';
+}
+
+function switchMode(mode) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === mode);
+  });
+  document.getElementById('manualMode').style.display = mode === 'manual' ? 'block' : 'none';
+  document.getElementById('genBtn').style.display = mode === 'auto' ? 'inline-block' : 'none';
+  document.getElementById('genManualBtn').style.display = mode === 'manual' ? 'inline-block' : 'none';
+  // Hide the auto-only "each zone one file" reminder (some rule fields don't apply to manual, but we leave them visible for consistency)
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderPortTrees() {
+  if (!Object.keys(equipmentDevices).length) return;
+  populateEqSelect('src');
+  populateEqSelect('dst');
+  renderPortList('src');
+  renderPortList('dst');
+}
+
+function populateEqSelect(side) {
+  const sel = document.getElementById(side + 'EqSel');
+  const prev = sel.value;
+  const eqs = Object.keys(equipmentDevices).sort(naturalSort);
+  const opts = ['<option value="">-- 請先選 Equipment --</option>'];
+  for (const eq of eqs) {
+    opts.push(`<option value="${escapeHtml(eq)}">${escapeHtml(eq)} (${equipmentDevices[eq].length} ports)</option>`);
+  }
+  sel.innerHTML = opts.join('');
+  if (prev && equipmentDevices[prev]) sel.value = prev;
+}
+
+function renderPortList(side) {
+  const container = document.getElementById(side + 'Tree');
+  const eqId = document.getElementById(side + 'EqSel').value;
+  if (!eqId) {
+    container.innerHTML = '<div class="port-hint">請先從上方選一個 Equipment</div>';
+    return;
+  }
+  const devs = [...(equipmentDevices[eqId] || [])].sort(naturalSort);
+  if (!devs.length) {
+    container.innerHTML = '<div class="port-hint">(此 Equipment 沒有 enabled port)</div>';
+    return;
+  }
+  const currentPick = side === 'src' ? pickedSrc : pickedDst;
+  container.innerHTML = devs.map(d => {
+    const zid = deviceToZoneMap[d] || '';
+    const cls = d === currentPick ? ' picked' : '';
+    return `<div class="port-item${cls}" data-side="${side}" data-port="${escapeHtml(d)}" title="Zone: ${escapeHtml(zid)}">${escapeHtml(d)}</div>`;
+  }).join('');
+  container.querySelectorAll('.port-item').forEach(el => {
+    el.addEventListener('click', () => pickPort(side, el.dataset.port));
+  });
+  const q = document.getElementById(side + 'Search').value;
+  if (q) filterPortList(side, q);
+}
+
+function pickPort(side, port) {
+  if (side === 'src') pickedSrc = port;
+  else pickedDst = port;
+  document.querySelectorAll(`.port-item[data-side="${side}"]`).forEach(el => {
+    el.classList.toggle('picked', el.dataset.port === port);
+  });
+  const label = document.getElementById(side === 'src' ? 'pickedSrcLabel' : 'pickedDstLabel');
+  label.textContent = port;
+  label.classList.remove('empty');
+  updateAddBtnState();
+}
+
+function updateAddBtnState() {
+  const both = !!(pickedSrc && pickedDst);
+  document.getElementById('addPairBtn').disabled = !both || pickedSrc === pickedDst;
+  document.getElementById('swapPickedBtn').disabled = !both;
+  const hint = document.getElementById('pickHint');
+  if (!both) hint.textContent = '請先在左右樹中各選一個 Port';
+  else if (pickedSrc === pickedDst) hint.innerHTML = '<span class="warn">Source 跟 Dest 不能相同</span>';
+  else hint.textContent = `準備加入: ${pickedSrc} → ${pickedDst}`;
+}
+
+function filterPortList(side, query) {
+  const q = query.trim().toLowerCase();
+  const container = document.getElementById(side + 'Tree');
+  container.querySelectorAll('.port-item').forEach(item => {
+    const port = item.dataset.port.toLowerCase();
+    item.style.display = !q || port.includes(q) ? '' : 'none';
+  });
+}
+
+function swapPicked() {
+  const t = pickedSrc; pickedSrc = pickedDst; pickedDst = t;
+  const srcLabel = document.getElementById('pickedSrcLabel');
+  const dstLabel = document.getElementById('pickedDstLabel');
+  srcLabel.textContent = pickedSrc || '未選';
+  srcLabel.classList.toggle('empty', !pickedSrc);
+  dstLabel.textContent = pickedDst || '未選';
+  dstLabel.classList.toggle('empty', !pickedDst);
+  document.querySelectorAll('.port-item[data-side="src"]').forEach(el =>
+    el.classList.toggle('picked', el.dataset.port === pickedSrc));
+  document.querySelectorAll('.port-item[data-side="dst"]').forEach(el =>
+    el.classList.toggle('picked', el.dataset.port === pickedDst));
+  updateAddBtnState();
+}
+
+function addPair() {
+  if (!pickedSrc || !pickedDst || pickedSrc === pickedDst) return;
+  const cids = Math.max(1, parseInt(document.getElementById('newPairCids').value) || 1);
+  manualPairs.push({ src: pickedSrc, dst: pickedDst, cids });
+  renderPairList();
+  setPairInfo(`已加入 ${pickedSrc} → ${pickedDst} (${cids} 個 CID,共 ${manualPairs.length} 筆)`);
+}
+
+function removePair(idx) {
+  manualPairs.splice(idx, 1);
+  renderPairList();
+}
+
+function clearPairs() {
+  if (manualPairs.length === 0) return;
+  if (!confirm(`確定清空 ${manualPairs.length} 筆配對?`)) return;
+  manualPairs = [];
+  renderPairList();
+  setPairInfo('已清空');
+}
+
+// device → {pool, carrierTypes} from Step 2 pool config
+function getDevicePoolInfo() {
+  const info = {};
+  for (const z of Object.keys(devicesByZone)) {
+    const poolInput = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="pool"]`);
+    const ctypeInput = document.querySelector(`input[data-zone="${CSS.escape(z)}"][data-field="ctype"]`);
+    const pool = poolInput ? (poolInput.value.trim() || z) : z;
+    const ctypes = ctypeInput ? ctypeInput.value.split(',').map(s => s.trim()).filter(s => s) : [];
+    for (const d of devicesByZone[z]) {
+      info[d] = { pool, carrierTypes: ctypes.length ? ctypes : ['C12'] };
+    }
+  }
+  return info;
+}
+
+function renderPairList() {
+  document.getElementById('pairCount').textContent = manualPairs.length;
+  const body = document.getElementById('pairBody');
+  if (manualPairs.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim)">清單是空的</td></tr>';
+    return;
+  }
+  const poolInfo = getDevicePoolInfo();
+  body.innerHTML = manualPairs.map((p, i) => {
+    const pi = poolInfo[p.src];
+    const ct = pi ? pi.carrierTypes[i % pi.carrierTypes.length] : '<span class="warn">(未定義)</span>';
+    const cids = Math.max(1, p.cids || 1);
+    return `<tr>
+      <td>${i + 1}</td>
+      <td><code>${escapeHtml(p.src)}</code></td>
+      <td><code>${escapeHtml(p.dst)}</code></td>
+      <td>${ct}</td>
+      <td><input type="number" class="pair-cids-inp" data-idx="${i}" value="${cids}" min="1" max="20" style="width:70px"></td>
+      <td style="text-align:right"><button type="button" class="btn-secondary btn-sm remove-pair-btn" data-idx="${i}">刪除</button></td>
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('.remove-pair-btn').forEach(b => {
+    b.addEventListener('click', () => removePair(parseInt(b.dataset.idx)));
+  });
+  body.querySelectorAll('.pair-cids-inp').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const idx = parseInt(inp.dataset.idx);
+      manualPairs[idx].cids = Math.max(1, parseInt(inp.value) || 1);
+      inp.value = manualPairs[idx].cids;
+    });
+  });
+}
+
+function applyBulkCids() {
+  const n = Math.max(1, parseInt(document.getElementById('bulkCids').value) || 1);
+  if (manualPairs.length === 0) {
+    setPairInfo('清單是空的', true);
+    return;
+  }
+  manualPairs.forEach(p => { p.cids = n; });
+  renderPairList();
+  setPairInfo(`已將全部 ${manualPairs.length} 筆的 CID 數設為 ${n}`);
+}
+
+function setPairInfo(text, isError) {
+  const el = document.getElementById('pairInfo');
+  el.innerHTML = isError ? `<span class="warn">${text}</span>` : text;
+}
+
+function exportPairsCSV() {
+  if (!manualPairs.length) { setPairInfo('清單是空的', true); return; }
+  const rows = [['Source', 'Dest', 'CIDs'], ...manualPairs.map(p => [p.src, p.dst, Math.max(1, p.cids || 1)])];
+  const csv = rows.map(r => r.join(',')).join('\n') + '\n';
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'manual_pairs.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setPairInfo(`已匯出 ${manualPairs.length} 筆到 manual_pairs.csv`);
+}
+
+function parsePairText(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+  if (!lines.length) return { added: 0, skipped: 0 };
+  // Skip header if first row starts with source/dest
+  const firstSplit = lines[0].split(/[\t,\s]+/).map(s => s.trim().toLowerCase());
+  const startIdx = (firstSplit[0] === 'source' && firstSplit[1] === 'dest') ? 1 : 0;
+  const defaultCids = Math.max(1, parseInt(document.getElementById('bulkCids').value) || 1);
+  let added = 0, skipped = 0;
+  for (let i = startIdx; i < lines.length; i++) {
+    const parts = lines[i].split(/[\t,]|\s{2,}| +/).map(s => s.trim().replace(/^"|"$/g, '')).filter(s => s);
+    if (parts.length < 2 || !parts[0] || !parts[1] || parts[0] === parts[1]) { skipped++; continue; }
+    // Optional 3rd column = CID count
+    const cids = parts[2] ? Math.max(1, parseInt(parts[2]) || defaultCids) : defaultCids;
+    manualPairs.push({ src: parts[0], dst: parts[1], cids });
+    added++;
+  }
+  return { added, skipped };
+}
+
+function importPairsCSV(file) {
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const { added, skipped } = parsePairText(evt.target.result);
+      if (added === 0) throw new Error('沒有讀到任何配對 (檢查格式: 每行 "src,dst")');
+      renderPairList();
+      setPairInfo(`匯入 ${added} 筆${skipped ? `,跳過 ${skipped} 筆無效` : ''}`);
+    } catch (err) {
+      setPairInfo(`匯入失敗: ${err.message}`, true);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function addPastedPairs() {
+  const ta = document.getElementById('pastePairs');
+  const text = ta.value;
+  if (!text.trim()) {
+    setPasteInfo('請先貼上內容', true);
+    return;
+  }
+  try {
+    const { added, skipped } = parsePairText(text);
+    if (added === 0) {
+      setPasteInfo('沒有讀到任何配對 (每行需要 "src,dst" 或 "src<tab>dst")', true);
+      return;
+    }
+    renderPairList();
+    setPasteInfo(`已加入 ${added} 筆${skipped ? `,跳過 ${skipped} 筆無效` : ''} (清單共 ${manualPairs.length} 筆)`);
+    ta.value = '';
+  } catch (err) {
+    setPasteInfo(`解析失敗: ${err.message}`, true);
+  }
+}
+
+function setPasteInfo(text, isError) {
+  const el = document.getElementById('pasteInfo');
+  el.innerHTML = isError ? `<span class="warn">${text}</span>` : text;
+}
+
+function generateManual() {
+  if (manualPairs.length === 0) {
+    setPairInfo('請先加入至少一筆配對 (從樹狀選、貼上、或匯入 CSV)', true);
+    setManualGenInfo('請先加入至少一筆配對', true);
+    return;
+  }
+  const btns = [document.getElementById('genManualBtn'), document.getElementById('genManualBtnInline')].filter(Boolean);
+  btns.forEach(b => { b.disabled = true; b.textContent = '產生中...'; });
+  document.getElementById('stats').textContent = '';
+  setManualGenInfo('');
+  setTimeout(() => {
+    try {
+      doGenerateManual();
+    } catch (err) {
+      document.getElementById('stats').innerHTML = `<span class="warn">錯誤:${err.message}</span>`;
+      setManualGenInfo(`錯誤: ${err.message}`, true);
+    } finally {
+      btns.forEach(b => { b.disabled = false; b.textContent = '產生手動配對 CSV'; });
+    }
+  }, 30);
+}
+
+function setManualGenInfo(text, isError) {
+  const el = document.getElementById('manualGenInfo');
+  if (!el) return;
+  el.innerHTML = isError ? `<span class="warn">${text}</span>` : text;
+}
+
+function doGenerateManual() {
+  const outName = document.getElementById('outName').value || 'dispatch.csv';
+  const f = {
+    Group: document.getElementById('fGroup').value,
+    CID: 'TEST0001',
+    LotID: document.getElementById('fLotID').value,
+    LotNum: document.getElementById('fLotNum').value,
+    Priority: document.getElementById('fPriority').value,
+    Replace: document.getElementById('fReplace').value,
+    Back: document.getElementById('fBack').value,
+    ExecTime: document.getElementById('fExecTime').value,
+  };
+  const poolInfo = getDevicePoolInfo();
+  const fixedTime = '00:00:00';
+
+  let cidCounter = 0;
+  const nextCID = () => {
+    const c = incrementCID(f.CID, cidCounter);
+    cidCounter++;
+    return c;
+  };
+
+  const missingPool = new Set();
+  const cidCountSummary = {};
+  const parts = ['Group,Trigger Time,CarrierID,Lot ID,Lot Num,Carrier Type,Source,Dest,Priority,Replace,Back,BackCarrierID,Back Carrier Type,Execute Time'];
+  for (let idx = 0; idx < manualPairs.length; idx++) {
+    const p = manualPairs[idx];
+    const pi = poolInfo[p.src];
+    if (!pi) missingPool.add(p.src);
+    const ctypes = pi ? pi.carrierTypes : ['C12'];
+    const ct = ctypes[idx % ctypes.length];
+    const k = Math.max(1, p.cids || 1);
+    cidCountSummary[k] = (cidCountSummary[k] || 0) + 1;
+    const cids = [];
+    for (let n = 0; n < k; n++) cids.push(nextCID());
+    const cidField = cids.join('|');
+    parts.push([
+      f.Group, fixedTime, cidField, f.LotID, f.LotNum, ct,
+      p.src, p.dst,
+      f.Priority, f.Replace, f.Back,
+      ' ', ' ', f.ExecTime,
+    ].join(','));
+  }
+  const csv = parts.join('\n') + '\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = outName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  const sizeKB = (csv.length / 1024).toFixed(1);
+  const warnHtml = missingPool.size
+    ? `<br><span class="warn">${missingPool.size} 個 Source port 沒有對應 Pool (Step 2 沒設或該 zone 沒 device),已用預設 C12。</span>`
+    : '';
+  const cidSummary = Object.keys(cidCountSummary).sort((a,b)=>a-b).map(k => `${k}c×${cidCountSummary[k]}`).join(', ');
+  const msg = `手動模式:產生 <b>${manualPairs.length}</b> 筆 (Trigger Time 全部 00:00:00)。CarrierIDs: ${cidSummary}。檔案 <b>${sizeKB} KB</b>,已下載 <code>${outName}</code>${warnHtml}`;
+  document.getElementById('stats').innerHTML = msg;
+  setManualGenInfo(`✓ 產生 ${manualPairs.length} 筆,已下載 ${outName} (${sizeKB} KB)`);
+  document.getElementById('previewWrap').style.display = 'block';
+  // Preview: show all rows if ≤50, otherwise first 30 + note
+  const previewLimit = 50;
+  const previewLabel = document.querySelector('#previewWrap .small');
+  if (manualPairs.length <= previewLimit) {
+    if (previewLabel) previewLabel.textContent = `預覽 (全部 ${manualPairs.length} 筆):`;
+    document.getElementById('preview').textContent = parts.join('\n');
+  } else {
+    if (previewLabel) previewLabel.textContent = `預覽 (前 30 筆 / 共 ${manualPairs.length} 筆,完整內容在下載檔中):`;
+    document.getElementById('preview').textContent = parts.slice(0, 31).join('\n');
+  }
+}
+
 // ---------- init ----------
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('exportPoolCSVBtn').addEventListener('click', exportPoolCSV);
@@ -783,6 +1295,36 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
   loadExcludeFromDB().then(() => { excludeLastSaved = excludeInp.value; });
+
+  // Mode tabs
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.addEventListener('click', () => switchMode(b.dataset.tab));
+  });
+
+  // Manual mode wiring
+  document.getElementById('srcEqSel').addEventListener('change', () => renderPortList('src'));
+  document.getElementById('dstEqSel').addEventListener('change', () => renderPortList('dst'));
+  document.getElementById('srcSearch').addEventListener('input', e => filterPortList('src', e.target.value));
+  document.getElementById('dstSearch').addEventListener('input', e => filterPortList('dst', e.target.value));
+  document.getElementById('addPairBtn').addEventListener('click', addPair);
+  document.getElementById('swapPickedBtn').addEventListener('click', swapPicked);
+  document.getElementById('clearPairsBtn').addEventListener('click', clearPairs);
+  document.getElementById('exportPairsBtn').addEventListener('click', exportPairsCSV);
+  document.getElementById('importPairsBtn').addEventListener('click', () => {
+    document.getElementById('importPairsFile').click();
+  });
+  document.getElementById('importPairsFile').addEventListener('change', e => {
+    if (e.target.files[0]) importPairsCSV(e.target.files[0]);
+    e.target.value = '';
+  });
+  document.getElementById('genManualBtn').addEventListener('click', generateManual);
+  document.getElementById('genManualBtnInline').addEventListener('click', generateManual);
+  document.getElementById('pasteAddBtn').addEventListener('click', addPastedPairs);
+  document.getElementById('clearPasteBtn').addEventListener('click', () => {
+    document.getElementById('pastePairs').value = '';
+    setPasteInfo('');
+  });
+  document.getElementById('applyBulkCidsBtn').addEventListener('click', applyBulkCids);
 });
 </script>
 

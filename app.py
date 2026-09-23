@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Flask backend for Dispatch Generator.
+"""Flask backend for TSC TOOL.
 
 Serves index.html and provides a small settings key-value API
 (currently storing the shared exclude-devices list).
@@ -42,6 +42,16 @@ def db():
 @app.route("/")
 def index():
     return send_from_directory(BASE_DIR, "index.html")
+
+
+@app.route("/check")
+def check_page():
+    return send_from_directory(BASE_DIR, "check.html")
+
+
+@app.route("/stats")
+def stats_page():
+    return send_from_directory(BASE_DIR, "stats.html")
 
 
 @app.route("/<path:filename>")

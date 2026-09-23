@@ -9,7 +9,7 @@
 ## 症狀
 
 ```
-[mcsadmin@localhost dispatch_generator]$ ./serve.sh 9000
+[mcsadmin@localhost TSC_TOOL]$ ./serve.sh 9000
 Open: http://192.168.56.20:9000/index.html
 Serving HTTP on 0.0.0.0 port 9000 (http://0.0.0.0:9000/) ...
 ```
@@ -39,7 +39,7 @@ curl -sI http://127.0.0.1:9000/index.html | head -1 # 本機打得通嗎
 
 **解法:改用 `nohup` 背景執行**
 ```bash
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 nohup python3 -m http.server 9000 > /tmp/dispatch_server.log 2>&1 &
 disown
 ```
@@ -140,7 +140,7 @@ curl -sI http://127.0.0.1:9000/index.html | head -1
 # Test-NetConnection 192.168.56.20 -Port 9000
 
 # 4. Server 沒起 → 重啟
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 nohup python3 -m http.server 9000 > /tmp/dispatch_server.log 2>&1 &
 disown
 

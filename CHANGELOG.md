@@ -1,0 +1,30 @@
+# TSC TOOL Changelog
+
+## v2.3.260923
+* **Added:** Stats Page - New `/stats` standalone page (異常統計) that ingests raw TSC UI logs and produces alarm statistics. Supports multi-file upload (drag-in `.log` / `.txt`); parses lines matching `[TIMESTAMP] [LEVEL] [ALARM] [SYSTEM] [version]: {...}` and extracts `Level / Code / SubCode / Cause / Detail / UnitID / UnitType / CommandID`.
+* **Added:** Stats Page - Summary card: total alarms, per-level breakdown (Serious / Error / Warning / Info), affected device count, unique alarm-code count, time range with span in hours.
+* **Added:** Stats Page - Aggregated statistics table grouped by (Code, SubCode) with columns: Code / SubCode / Level / Cause / Detail (latest) / 次數 / 首次 / 最後 / 影響 device (top 3 with count). Column headers are click-to-sort with visual arrow indicator.
+* **Added:** Stats Page - Time-series line chart (Chart.js from CDN) with alarms bucketed over time. Auto bucket-size picking (5min / 15min / hour / day) based on log span; overridable via dropdown. Top N alarm codes get their own line (default N=8), rest fold into a dashed "Others" series.
+* **Added:** Stats Page - Filters: Level checkboxes (Serious / Error / Warning / Info), device filter (comma-separated `UnitID` list), Top-N slider for chart.
+* **Added:** Stats Page - Export aggregated statistics as CSV (Code / SubCode / Level / Cause / Detail / Count / First / Last / Devices).
+* **Added:** Flask - `/stats` route serves `stats.html`.
+* **Added:** Header nav - Existing pages (`index.html` / `check.html`) get a third nav link "異常統計" pointing to `/stats`.
+
+## v2.2.260923
+* **Added:** Check Page - New tab structure at the top of `/check`: **檢查重複設定** (existing) / **新舊專案比對** (new). Existing dup-check flow untouched, wrapped in `#modeDupe`.
+* **Added:** Project Compare - Upload two TSC project JSON files (舊 / 新) and diff. Reports both dimensions: (a) `workstations` matched by `id` (Device_ID) and (b) `workstations` matched by grid position `(floor, row, col)`. Each dimension shows added / removed / modified station sets; modified cells show per-field before → after.
+* **Added:** Project Compare - Additional sections: `vehicles` array (by id), `eRacks` array (by id), `paths` count + id list diff, `shapes` count + id list diff, `graph` nodes/edges counts, and `settings` top-level key changes.
+* **Added:** Project Compare - Options: ignore runtime fields (`carrierID / state / msg / alarm`) so operational state noise doesn't drown out real config changes; ignore grid cells that are empty on both sides.
+* **Added:** Project Compare - Export diff CSV (Section / Kind / Key / Location / Field / OldValue / NewValue).
+* **Changed:** Project Compare - Result layout refactored to aligned tables per section (Kind / Key / Location / Field / Old / New columns) instead of free-form diff-item rows. Long change sets get sticky headers + 500px scroll area. Old is highlighted red, new is green, delta column right-aligned with tabular numerals.
+* **Changed:** Styling - All `font-size` declarations across `index.html` and `check.html` migrated from `px` to `pt`. Ratio ~ 4px : 3pt (14pt body, 22pt h1, 16pt h2, 11pt small/tables, 10pt badges).
+* **Changed:** Project Compare - `settings` diff is now leaf-path based instead of top-level. Nested objects like `TSCSettings.CommandCheck.WaitingQueueRouteCheck` show as individual rows so a newly-added single setting no longer dumps the whole `TSCSettings` blob. Added/removed keys get their own kind (+/−) alongside modified (~). Primitive-array leaves (e.g. `routemap_filenames`) show `[N items]` badge with inline added/removed item list. Long JSON values (arrays of objects like `zones`) collapse into a click-to-expand `<details>` with full pretty-printed JSON.
+
+## v2.1.260923
+* **Added:** Check Duplicate Settings - New standalone page `/check` (檢查重複設定) that uploads a TSC project JSON, scans `workstations[].stations[][]`, and lists duplicates of `id` (Device_ID) and `portID` with each location's floor / row / col / equipmentID / zoneID / type / enabled. Options: individually toggle `id` / `portID` checks, "只看 Enabled=True", "忽略空字串 cell".
+* **Added:** Check Duplicate Settings - Export result as CSV (one row per location, columns include Kind / Value / Count / Floor / Row / Col / id / portID / equipmentID / zoneID / type / enabled).
+* **Added:** Check Duplicate Settings - "刪除重複 & 匯出新 JSON" button. Same-group duplicates preferentially keep `enabled=True` (falls back to the first occurrence); non-keepers are removed via `stations[row].splice(col, 1)` so remaining cells shift left. Overlap between `id` and `portID` deletion sets is deduped by `(floor, row, col)` key so each cell is spliced at most once. Original file is untouched; result is a deep-cloned pretty-printed JSON download.
+* **Added:** Site Header - Shared navigation across `/` (派令產生) and `/check` (檢查重複設定); current page highlighted in accent blue. Header breaks out of the body `max-width: 1800px` to span the full viewport (`margin: 0 calc(50% - 50vw); width: 100vw`), with a distinctive `#0f1622` background and a 2px accent-blue bottom border to visually separate it from cards.
+* **Added:** Flask - `/check` route serves `check.html` without the `.html` extension. The catch-all static route still serves `/check.html` for backward compatibility.
+* **Added:** Install Script - New `install.sh` for one-shot deployment on a fresh machine. Interactive by default (prompts for DB host / user / password / database / port); accepts `-y` for non-interactive with env-var overrides (`DB_HOST`, `DB_PASS`, `APP_PORT`, etc.). Installs Python deps (flask / pymysql / openpyxl), verifies MariaDB/MySQL service, runs `schema.sql`, writes `config.ini` (chmod 600), sets up the `tsc-tool.service` systemd user unit, and optionally enables `loginctl linger` + opens `firewall-cmd` port. Idempotent — safe to re-run.
+* **Notes:** New routes require `systemctl --user restart tsc-tool` to load. HTML / CSS / JS changes only require Ctrl+Shift+R to bust browser cache.

@@ -1,4 +1,4 @@
-# Dispatch 派令產生器
+# TSC TOOL
 
 依 Workstation xlsx 產生 MCS 派令 CSV。派令按 Zone 分池,同池 device 兩兩配對產生 Source → Dest 排列。
 
@@ -18,7 +18,7 @@
 ## 目錄結構
 
 ```
-dispatch_generator/
+TSC_TOOL/
 ├── README.md                       專案總覽 (本文件)
 ├── app.py                          Flask 後端 (serves index.html + /api/presets)
 ├── index.html                      前端 (含 Preset UI)
@@ -64,17 +64,17 @@ pip3 install --user flask pymysql openpyxl
 
 **已裝好後日常操作:**
 
-若已裝 systemd service (`systemctl --user status dispatch-generator`),服務已在跑,直接開瀏覽器 `http://<Linux IP>:9000/`。若沒裝,前景手動起:
+若已裝 systemd service (`systemctl --user status tsc-tool`),服務已在跑,直接開瀏覽器 `http://<Linux IP>:9000/`。若沒裝,前景手動起:
 ```bash
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 ./serve.sh              # port 固定 9000 (改 config.ini 可換)
 ```
 
 **服務管理 (已裝 systemd):**
 ```bash
-systemctl --user restart dispatch-generator     # 改 config/code 後重啟
-systemctl --user stop dispatch-generator        # 停
-journalctl --user -u dispatch-generator -f      # 看即時 log
+systemctl --user restart tsc-tool     # 改 config/code 後重啟
+systemctl --user stop tsc-tool        # 停
+journalctl --user -u tsc-tool -f      # 看即時 log
 ```
 
 **操作流程:**
@@ -87,12 +87,12 @@ journalctl --user -u dispatch-generator -f      # 看即時 log
 6. **(選) Save / Save As...** — 存回 DB 給下次或給同事用
 7. **點「產生並下載 CSV」** — CSV 會存到瀏覽器下載目錄
 
-> xlsx 只在瀏覽器內處理;preset 存到 Linux 端 MariaDB (dispatch_generator.presets)。
+> xlsx 只在瀏覽器內處理;preset 存到 Linux 端 MariaDB (tsc_tool.presets)。
 
 ### 方式 B:CLI 版
 
 ```bash
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 
 # 用預設值產生 (5F 規則,輸出到 output/dispatch.csv)
 python3 generate.py
@@ -276,7 +276,7 @@ python3 generate.py --no-wrap
 `index.html` 依賴 CDN 上的 SheetJS。若現場網路無法連外:
 
 ```bash
-cd /home/mcsadmin/dispatch_generator
+cd /home/mcsadmin/TSC_TOOL
 curl -o xlsx.full.min.js https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js
 ```
 
@@ -333,7 +333,7 @@ iconv -f UTF-8 -t BIG5 output/dispatch.csv > output/dispatch_big5.csv
 | 元件 | 檔案 | 說明 |
 |---|---|---|
 | API endpoint | `app.py` | Flask routes `/api/presets` (GET/POST/DELETE) 和 `/api/presets/<name>` |
-| DB schema | `schema.sql` | `dispatch_generator.presets` table |
+| DB schema | `schema.sql` | `tsc_tool.presets` table |
 | 前端 UI | `index.html` | `refreshPresets/loadPreset/savePresetAs/deletePreset` |
 | Config 格式 | `index.html` | `collectFullConfig()` / `applyConfig()` — JSON 結構 `{pools_by_zone, step3}` |
 

@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<title>TSC TOOL — 檢查重複設定</title>
+<style>
+  :root {
+    --bg: #1a1d21;
+    --bg-card: #24282e;
+    --bg-input: #2d3239;
+    --bg-chip: #1e3a5f;
+    --border: #3a4048;
+    --border-input: #4a5058;
+    --text: #d8dde3;
+    --text-dim: #8a9099;
+    --text-heading: #e8ecf1;
+    --accent: #4a9eff;
+    --accent-hover: #6bb1ff;
+    --warn: #ff6b6b;
+    --ok: #4ade80;
+    --code-bg: #12151a;
+    --code-text: #b2ccd6;
+  }
+  html, body { background: var(--bg); }
+  body { font-family: -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; width: 95%; max-width: 1800px; margin: 20px auto; padding: 0 16px; color: var(--text); font-size: 14pt; }
+  h1 { font-size: 22pt; color: var(--text-heading); font-weight: 600; margin-bottom: 6px; }
+  h2 { font-size: 16pt; margin-top: 0; margin-bottom: 10px; color: var(--text-heading); font-weight: 600; }
+  a { color: var(--accent); }
+  .card { border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin: 14px 0; background: var(--bg-card); }
+  label { font-size: 14pt; display: inline-block; margin-right: 12px; }
+  input[type=text], input[type=number], select {
+    padding: 8px 12px; font-size: 14pt;
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border-input); border-radius: 3px;
+  }
+  input[type=file] { color: var(--text); font-size: 14pt; }
+  input[type=file]::file-selector-button {
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border-input); border-radius: 3px;
+    padding: 8px 16px; font-size: 14pt; cursor: pointer; margin-right: 10px;
+  }
+  input[type=file]::file-selector-button:hover { background: var(--border); }
+  input[type=checkbox] { accent-color: var(--accent); transform: scale(1.3); margin: 0 4px; }
+  button { padding: 10px 22px; font-size: 14pt; background: var(--accent); color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-weight: 500; }
+  button:hover:not(:disabled) { background: var(--accent-hover); }
+  button:disabled { background: var(--border-input); color: var(--text-dim); cursor: not-allowed; }
+  .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border-input); }
+  .btn-secondary:hover:not(:disabled) { background: var(--border); }
+  .row { margin: 10px 0; }
+  .small { font-size: 11pt; color: var(--text-dim); margin-top: 8px; }
+  .warn { color: var(--warn); }
+  .ok { color: var(--ok); }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; font-size: 13pt; color: var(--code-text); }
+  hr.sep { border: 0; border-top: 1px dashed var(--border); margin: 12px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12pt; }
+  th { text-align: left; padding: 10px 12px; background: var(--bg-input); position: sticky; top: 0; color: var(--text-heading); font-weight: 600; font-size: 12pt; }
+  td { padding: 6px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-family: Menlo, Consolas, monospace; font-size: 11pt; }
+  tbody tr:hover { background: var(--bg-input); }
+  .tag-kind { display:inline-block; padding: 2px 8px; border-radius: 3px; background: var(--bg-chip); color: #b8d4f5; font-size: 11pt; }
+  .tag-warn { display:inline-block; padding: 2px 8px; border-radius: 3px; background: #4a2020; color: var(--warn); font-size: 11pt; font-weight: 600; }
+  .stats-row { display:flex; gap:20px; flex-wrap: wrap; margin: 6px 0; }
+  .stat { padding: 6px 12px; background: var(--bg-input); border-radius: 4px; font-size: 12pt; }
+  .stat b { color: var(--text-heading); font-size: 15pt; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-input); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+  .site-header {
+    display: flex; align-items: center; gap: 24px;
+    padding: 14px 40px;
+    background: #0f1622;
+    border-bottom: 2px solid var(--accent);
+    margin-top: -20px;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-bottom: 22px;
+    width: 100vw; box-sizing: border-box;
+  }
+  .site-header .brand { font-size: 16pt; font-weight: 600; color: var(--text-heading); letter-spacing: 0.5px; }
+  .site-header nav { display: flex; gap: 6px; }
+  .site-header nav a { padding: 8px 18px; border-radius: 4px; text-decoration: none; color: var(--text-dim); font-size: 13pt; font-weight: 500; border: 1px solid transparent; }
+  .site-header nav a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .site-header nav a.active { color: var(--accent); background: rgba(74,158,255,0.12); border-color: rgba(74,158,255,0.35); }
+  .tabs { display: flex; gap: 6px; margin: 8px 0 -1px; border-bottom: 1px solid var(--border); }
+  .tab-btn { background: var(--bg); color: var(--text-dim); border: 1px solid var(--border); border-bottom: 0; border-radius: 6px 6px 0 0; padding: 10px 26px; cursor: pointer; font-size: 13pt; font-weight: 500; }
+  .tab-btn.active { background: var(--bg-card); color: var(--accent); position: relative; top: 1px; }
+  .tab-btn:hover:not(.active) { color: var(--text); background: var(--bg-input); }
+  .diff-section { margin: 14px 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-card); }
+  .diff-section h3 { margin: 0 0 10px; font-size: 16pt; color: var(--text-heading); display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .diff-count { display: inline-block; padding: 3px 12px; border-radius: 12px; font-size: 12pt; font-weight: 600; }
+  .diff-count.added { background: rgba(74,222,128,0.15); color: var(--ok); }
+  .diff-count.removed { background: rgba(255,107,107,0.15); color: var(--warn); }
+  .diff-count.modified { background: rgba(74,158,255,0.15); color: var(--accent); }
+  .diff-count.zero { background: var(--bg-input); color: var(--text-dim); }
+  .diff-table { width: 100%; border-collapse: collapse; font-size: 13pt; margin-top: 8px; }
+  .diff-table th, .diff-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; font-family: Menlo, Consolas, monospace; }
+  .diff-table th { background: var(--bg-input); color: var(--text-heading); font-weight: 600; font-size: 12pt; position: sticky; top: 0; z-index: 1; }
+  .diff-table tr:last-child td { border-bottom: 0; }
+  .diff-table tr.added   td:first-child { border-left: 3px solid var(--ok); }
+  .diff-table tr.removed td:first-child { border-left: 3px solid var(--warn); }
+  .diff-table tr.modified td:first-child { border-left: 3px solid var(--accent); }
+  .diff-table tr:hover { background: var(--bg-input); }
+  .diff-table td.empty { color: var(--text-dim); font-style: italic; }
+  .diff-table td.old   { color: var(--warn); }
+  .diff-table td.new   { color: var(--ok); }
+  .diff-table td.num   { text-align: right; font-variant-numeric: tabular-nums; }
+  .diff-table .k-cell  { font-weight: 700; white-space: nowrap; }
+  .diff-table .k-added    { color: var(--ok); }
+  .diff-table .k-removed  { color: var(--warn); }
+  .diff-table .k-modified { color: var(--accent); }
+  .diff-table-wrap { max-height: 600px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; margin-top: 8px; }
+  .diff-empty-note { color: var(--text-dim); font-style: italic; font-size: 13pt; margin-top: 8px; }
+  .diff-table td details summary { font-size: 12pt; }
+  .diff-table td pre { font-size: 12pt; }
+  .diff-table td .small { font-size: 11pt; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand">TSC TOOL</div>
+  <nav>
+    <a href="/">派令產生</a>
+    <a href="/check" class="active">檢查重複設定</a>
+    <a href="/stats">異常統計</a>
+  </nav>
+</header>
+
+<div class="small" style="margin-bottom:6px">在 TSC project JSON 上做重複檢查或新舊版本比對,全部在瀏覽器內處理,原檔不動。</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-mode="dupe" type="button">檢查重複設定</button>
+  <button class="tab-btn" data-mode="compare" type="button">新舊專案比對</button>
+</div>
+
+<div id="modeDupe">
+
+<div class="card">
+  <h2>Step 1. 上傳 TSC Project JSON</h2>
+  <input type="file" id="fileInput" accept=".json,application/json">
+  <div id="fileInfo" class="small"></div>
+</div>
+
+<div class="card" id="optCard" style="display:none">
+  <h2>Step 2. 檢查選項</h2>
+  <div class="row">
+    <label><input type="checkbox" id="chkId" checked> 檢查 <code>id</code> (Device_ID) 重複</label>
+    <label><input type="checkbox" id="chkPortId" checked> 檢查 <code>portID</code> 重複</label>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" id="chkOnlyEnabled"> 只看 Enabled=True (預設全掃,把停用的殘留設定也抓出來)</label>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" id="chkIgnoreEmpty" checked> 忽略空字串 (未指派的空格 cell)</label>
+  </div>
+  <div class="row">
+    <button id="runBtn">執行檢查</button>
+    <button id="exportBtn" class="btn-secondary" disabled>匯出結果 CSV</button>
+    <button id="dedupeBtn" disabled>刪除重複 &amp; 匯出新 JSON</button>
+    <span id="runInfo" class="small" style="margin-left:10px"></span>
+  </div>
+  <div class="small">刪除規則:同組重複優先保留 <code>enabled=True</code>,兩邊同狀態則保留第一個。刪除方式為從 <code>stations[row]</code> 直接 splice 抽掉,後面的 cell 會往前遞補。</div>
+</div>
+
+<div class="card" id="resultCard" style="display:none">
+  <h2>Step 3. 檢查結果</h2>
+  <div class="stats-row" id="stats"></div>
+  <hr class="sep">
+  <div style="max-height:600px; overflow:auto; border:1px solid var(--border); border-radius:4px">
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th style="width:80px">類別</th>
+          <th>值</th>
+          <th style="width:70px">次數</th>
+          <th>出現位置 (floor / row / col / equipmentID / zoneID / type / enabled)</th>
+        </tr>
+      </thead>
+      <tbody id="resultBody"></tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- /#modeDupe -->
+
+<div id="modeCompare" style="display:none">
+
+<div class="card">
+  <h2>Step 1. 上傳兩個 project JSON</h2>
+  <div class="row">
+    <label style="min-width:80px">舊版本:</label>
+    <input type="file" id="oldFileInput" accept=".json,application/json">
+    <span id="oldFileInfo" class="small" style="margin-left:8px"></span>
+  </div>
+  <div class="row">
+    <label style="min-width:80px">新版本:</label>
+    <input type="file" id="newFileInput" accept=".json,application/json">
+    <span id="newFileInfo" class="small" style="margin-left:8px"></span>
+  </div>
+</div>
+
+<div class="card" id="cmpOptCard" style="display:none">
+  <h2>Step 2. 比對選項</h2>
+  <div class="row">
+    <label><input type="checkbox" id="cmpByIdEnable" checked> 以 <code>id</code> (Device_ID) 對應 station</label>
+    <label><input type="checkbox" id="cmpByGridEnable" checked> 以 (floor, row, col) 位置對應 station</label>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" id="cmpIgnoreRuntime" checked> 忽略 runtime 欄位 (<code>carrierID / state / msg / alarm</code>) 差異</label>
+  </div>
+  <div class="row">
+    <label><input type="checkbox" id="cmpIgnoreEmptyBoth" checked> 忽略兩邊都空的 grid cell</label>
+  </div>
+  <div class="row">
+    <button id="cmpRunBtn" disabled>執行比對</button>
+    <button id="cmpExportBtn" class="btn-secondary" disabled>匯出 diff CSV</button>
+    <span id="cmpInfo" class="small" style="margin-left:10px"></span>
+  </div>
+</div>
+
+<div id="cmpResultCard" style="display:none">
+  <h2 style="margin: 18px 4px 4px">Step 3. 比對結果</h2>
+  <div id="cmpResults"></div>
+</div>
+
+</div><!-- /#modeCompare -->
+
+<script>
+let projectData = null;   // parsed JSON
+let projectName = '';
+let lastResults = [];     // [{kind, value, count, locations: [{floor,row,col,cell}]}]
+
+document.getElementById('fileInput').addEventListener('change', handleFile);
+document.getElementById('runBtn').addEventListener('click', runCheck);
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('dedupeBtn').addEventListener('click', dedupeAndExport);
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function isTrue(v) {
+  return v === true || v === 1 || v === '1' ||
+         (typeof v === 'string' && v.trim().toUpperCase() === 'TRUE');
+}
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  projectName = file.name;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      projectData = JSON.parse(evt.target.result);
+      const ws = projectData.workstations || [];
+      if (!Array.isArray(ws)) throw new Error('workstations 欄位不存在或格式錯誤');
+      let cellCount = 0;
+      let enabledCount = 0;
+      for (const w of ws) {
+        for (const row of (w.stations || [])) {
+          for (const cell of (row || [])) {
+            cellCount++;
+            if (isTrue(cell.enabled)) enabledCount++;
+          }
+        }
+      }
+      document.getElementById('fileInfo').innerHTML =
+        `讀取 <code>${escapeHtml(file.name)}</code> — projectName=<code>${escapeHtml(projectData.projectName || '')}</code>,` +
+        `<b>${ws.length}</b> 個 floor,共 <b>${cellCount}</b> 個 station cell (Enabled=<b>${enabledCount}</b>)`;
+      document.getElementById('optCard').style.display = 'block';
+      document.getElementById('resultCard').style.display = 'none';
+      document.getElementById('exportBtn').disabled = true;
+    } catch (err) {
+      document.getElementById('fileInfo').innerHTML =
+        `<span class="warn">解析失敗: ${escapeHtml(err.message)}</span>`;
+      projectData = null;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function collectCells() {
+  const cells = [];
+  for (const w of (projectData.workstations || [])) {
+    const floor = w.floor || '';
+    const stations = w.stations || [];
+    for (let r = 0; r < stations.length; r++) {
+      const row = stations[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        cells.push({ floor, row: r, col: c, cell: row[c] || {} });
+      }
+    }
+  }
+  return cells;
+}
+
+function groupByField(cells, field, ignoreEmpty, onlyEnabled) {
+  const map = new Map();
+  for (const loc of cells) {
+    if (onlyEnabled && !isTrue(loc.cell.enabled)) continue;
+    const v = loc.cell[field];
+    if (ignoreEmpty && (v == null || String(v).trim() === '')) continue;
+    const key = String(v);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(loc);
+  }
+  return map;
+}
+
+function runCheck() {
+  if (!projectData) return;
+  const chkId = document.getElementById('chkId').checked;
+  const chkPortId = document.getElementById('chkPortId').checked;
+  const onlyEnabled = document.getElementById('chkOnlyEnabled').checked;
+  const ignoreEmpty = document.getElementById('chkIgnoreEmpty').checked;
+
+  if (!chkId && !chkPortId) {
+    document.getElementById('runInfo').innerHTML = '<span class="warn">請至少勾選一項檢查</span>';
+    return;
+  }
+
+  const cells = collectCells();
+  const results = [];
+
+  if (chkId) {
+    const grp = groupByField(cells, 'id', ignoreEmpty, onlyEnabled);
+    for (const [val, locs] of grp) {
+      if (locs.length > 1) {
+        results.push({ kind: 'Device_ID (id)', value: val, count: locs.length, locations: locs });
+      }
+    }
+  }
+  if (chkPortId) {
+    const grp = groupByField(cells, 'portID', ignoreEmpty, onlyEnabled);
+    for (const [val, locs] of grp) {
+      if (locs.length > 1) {
+        results.push({ kind: 'portID', value: val, count: locs.length, locations: locs });
+      }
+    }
+  }
+
+  results.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1;
+    if (a.count !== b.count) return b.count - a.count;
+    return a.value.localeCompare(b.value, undefined, { numeric: true });
+  });
+
+  lastResults = results;
+  renderResults(results, cells.length, onlyEnabled);
+  document.getElementById('exportBtn').disabled = results.length === 0;
+  document.getElementById('dedupeBtn').disabled = results.length === 0;
+}
+
+function renderResults(results, totalCells, onlyEnabled) {
+  const statsEl = document.getElementById('stats');
+  const dupCount = results.length;
+  const dupLocations = results.reduce((s, r) => s + r.count, 0);
+  const scanNote = onlyEnabled ? ' (Enabled=True only)' : ' (含 Enabled=False)';
+  statsEl.innerHTML =
+    `<div class="stat">掃描 <b>${totalCells}</b> cell${scanNote}</div>` +
+    `<div class="stat ${dupCount ? '' : 'ok'}">重複組數: <b>${dupCount}</b></div>` +
+    `<div class="stat">受影響 cell: <b>${dupLocations}</b></div>`;
+
+  const tbody = document.getElementById('resultBody');
+  if (!results.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:24px; color:var(--ok); font-family:inherit">沒有發現重複設定</td></tr>';
+  } else {
+    const rows = [];
+    for (const r of results) {
+      const locHtml = r.locations.map(l => {
+        const c = l.cell;
+        const enTag = isTrue(c.enabled)
+          ? '<span class="tag-kind">EN</span>'
+          : '<span class="tag-warn">DIS</span>';
+        return `<div>${enTag} <b>${escapeHtml(l.floor)}</b> / r=${l.row} / c=${l.col} — eq=<code>${escapeHtml(c.equipmentID || '')}</code> zone=<code>${escapeHtml(c.zoneID || '')}</code> type=<code>${escapeHtml(c.type || '')}</code></div>`;
+      }).join('');
+      rows.push(
+        `<tr><td><span class="tag-kind">${escapeHtml(r.kind)}</span></td>` +
+        `<td><b>${escapeHtml(r.value)}</b></td>` +
+        `<td><span class="tag-warn">${r.count}</span></td>` +
+        `<td>${locHtml}</td></tr>`
+      );
+    }
+    tbody.innerHTML = rows.join('');
+  }
+  document.getElementById('resultCard').style.display = 'block';
+  document.getElementById('runInfo').innerHTML = `檢查完成 (${new Date().toLocaleTimeString()})`;
+}
+
+function csvCell(v) {
+  const s = v == null ? '' : String(v);
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function dedupeAndExport() {
+  if (!projectData || !lastResults.length) return;
+
+  // Pick keeper per group (prefer enabled=True; else first), collect losers.
+  // Key by (floor, row, col) to dedupe across id/portID group overlap.
+  const deleteKeys = new Set();
+  let kept = 0, dropped = 0;
+  for (const g of lastResults) {
+    let keeperIdx = g.locations.findIndex(l => isTrue(l.cell.enabled));
+    if (keeperIdx < 0) keeperIdx = 0;
+    for (let i = 0; i < g.locations.length; i++) {
+      const l = g.locations[i];
+      const key = `${l.floor}|${l.row}|${l.col}`;
+      if (i === keeperIdx) {
+        kept++;
+      } else {
+        deleteKeys.add(key);
+        dropped++;
+      }
+    }
+  }
+
+  const uniqueDrops = deleteKeys.size;
+  const ok = confirm(
+    `準備刪除 ${uniqueDrops} 個重複 cell (原始標記 ${dropped} 筆,扣除跨 id/portID 重疊)。\n` +
+    `保留 ${kept} 個 (優先 enabled=True)。\n\n` +
+    `刪除方式:stations[row].splice(col, 1),後面的 cell 會往前遞補。\n\n` +
+    `匯出成新 JSON 檔?原檔不動。`
+  );
+  if (!ok) return;
+
+  // Deep clone
+  const cloned = JSON.parse(JSON.stringify(projectData));
+
+  // Group delete keys by (floor, row); sort cols descending so splice indexes stay valid
+  const byRow = new Map();
+  for (const key of deleteKeys) {
+    const [floor, r, c] = key.split('|');
+    const rowKey = `${floor}|${r}`;
+    if (!byRow.has(rowKey)) byRow.set(rowKey, []);
+    byRow.get(rowKey).push(parseInt(c, 10));
+  }
+  for (const cols of byRow.values()) cols.sort((a, b) => b - a);
+
+  // Apply splice
+  let actual = 0;
+  for (const w of (cloned.workstations || [])) {
+    const stations = w.stations || [];
+    for (let r = 0; r < stations.length; r++) {
+      const rowKey = `${w.floor}|${r}`;
+      const cols = byRow.get(rowKey);
+      if (!cols) continue;
+      for (const c of cols) {
+        stations[r].splice(c, 1);
+        actual++;
+      }
+    }
+  }
+
+  // Write out
+  const blob = new Blob([JSON.stringify(cloned, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const base = projectName.replace(/\.json$/i, '') || 'project';
+  a.href = url;
+  a.download = `${base}_deduped.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  document.getElementById('runInfo').innerHTML =
+    `已匯出 <code>${escapeHtml(a.download)}</code> — 移除 <b>${actual}</b> 個 cell,保留 <b>${kept}</b> 個 (${new Date().toLocaleTimeString()})`;
+}
+
+function exportCSV() {
+  if (!lastResults.length) return;
+  const header = ['Kind', 'Value', 'Count', 'Floor', 'Row', 'Col', 'id', 'portID', 'equipmentID', 'zoneID', 'type', 'enabled'];
+  const lines = [header.join(',')];
+  for (const r of lastResults) {
+    for (const l of r.locations) {
+      const c = l.cell;
+      lines.push([
+        r.kind, r.value, r.count,
+        l.floor, l.row, l.col,
+        c.id || '', c.portID || '', c.equipmentID || '', c.zoneID || '', c.type || '',
+        isTrue(c.enabled) ? 'TRUE' : 'FALSE',
+      ].map(csvCell).join(','));
+    }
+  }
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const base = projectName.replace(/\.json$/i, '') || 'project';
+  a.href = url;
+  a.download = `${base}_duplicates.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ==================== Compare Mode ====================
+let oldData = null, newData = null;
+let oldName = '', newName = '';
+let lastDiffs = null;
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchMode(btn.dataset.mode));
+});
+document.getElementById('oldFileInput').addEventListener('change', e => loadCompareFile('old', e));
+document.getElementById('newFileInput').addEventListener('change', e => loadCompareFile('new', e));
+document.getElementById('cmpRunBtn').addEventListener('click', runCompare);
+document.getElementById('cmpExportBtn').addEventListener('click', exportDiffCSV);
+
+function switchMode(mode) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  document.getElementById('modeDupe').style.display = mode === 'dupe' ? 'block' : 'none';
+  document.getElementById('modeCompare').style.display = mode === 'compare' ? 'block' : 'none';
+}
+
+function loadCompareFile(side, e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const infoEl = document.getElementById(side + 'FileInfo');
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data.workstations)) throw new Error('workstations 欄位不存在');
+      if (side === 'old') { oldData = data; oldName = file.name; }
+      else                { newData = data; newName = file.name; }
+      const cells = collectCellsOf(data);
+      infoEl.innerHTML = `<code>${escapeHtml(file.name)}</code> — ${data.workstations.length} floor / ${cells.length} cell`;
+      document.getElementById('cmpOptCard').style.display = (oldData && newData) ? 'block' : 'none';
+      document.getElementById('cmpRunBtn').disabled = !(oldData && newData);
+    } catch (err) {
+      infoEl.innerHTML = `<span class="warn">解析失敗: ${escapeHtml(err.message)}</span>`;
+      if (side === 'old') oldData = null; else newData = null;
+      document.getElementById('cmpRunBtn').disabled = true;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function collectCellsOf(data) {
+  const cells = [];
+  for (const w of (data.workstations || [])) {
+    const floor = w.floor || '';
+    const stations = w.stations || [];
+    for (let r = 0; r < stations.length; r++) {
+      const row = stations[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        cells.push({ floor, row: r, col: c, cell: row[c] || {} });
+      }
+    }
+  }
+  return cells;
+}
+
+const RUNTIME_FIELDS = new Set(['carrierID', 'state', 'msg', 'alarm']);
+
+function cellSignature(cell, ignoreRuntime) {
+  const obj = {};
+  for (const k of Object.keys(cell).sort()) {
+    if (ignoreRuntime && RUNTIME_FIELDS.has(k)) continue;
+    obj[k] = cell[k];
+  }
+  return JSON.stringify(obj);
+}
+
+function diffCellFields(oldCell, newCell, ignoreRuntime) {
+  const keys = new Set([...Object.keys(oldCell || {}), ...Object.keys(newCell || {})]);
+  const changes = [];
+  for (const k of Array.from(keys).sort()) {
+    if (ignoreRuntime && RUNTIME_FIELDS.has(k)) continue;
+    const ov = (oldCell || {})[k];
+    const nv = (newCell || {})[k];
+    if (JSON.stringify(ov) !== JSON.stringify(nv)) {
+      changes.push({ field: k, old: ov, new: nv });
+    }
+  }
+  return changes;
+}
+
+function isEmptyCell(cell) {
+  if (!cell) return true;
+  const id = cell.id;
+  const eq = cell.equipmentID;
+  return (id == null || id === '') && (eq == null || eq === '');
+}
+
+function diffStationsById(oldCells, newCells, ignoreRuntime) {
+  const oldMap = new Map(), newMap = new Map();
+  for (const l of oldCells) {
+    const id = (l.cell.id || '').trim();
+    if (id) oldMap.set(id, l);
+  }
+  for (const l of newCells) {
+    const id = (l.cell.id || '').trim();
+    if (id) newMap.set(id, l);
+  }
+  const added = [], removed = [], modified = [];
+  for (const [id, loc] of newMap) {
+    if (!oldMap.has(id)) added.push({ id, loc });
+  }
+  for (const [id, loc] of oldMap) {
+    if (!newMap.has(id)) removed.push({ id, loc });
+  }
+  for (const [id, oldLoc] of oldMap) {
+    const newLoc = newMap.get(id);
+    if (!newLoc) continue;
+    const changes = diffCellFields(oldLoc.cell, newLoc.cell, ignoreRuntime);
+    if (changes.length) modified.push({ id, oldLoc, newLoc, changes });
+  }
+  return { added, removed, modified };
+}
+
+function diffStationsByGrid(oldCells, newCells, ignoreRuntime, ignoreEmptyBoth) {
+  const oldMap = new Map(), newMap = new Map();
+  for (const l of oldCells) oldMap.set(`${l.floor}|${l.row}|${l.col}`, l);
+  for (const l of newCells) newMap.set(`${l.floor}|${l.row}|${l.col}`, l);
+  const keys = new Set([...oldMap.keys(), ...newMap.keys()]);
+  const added = [], removed = [], modified = [];
+  for (const k of keys) {
+    const o = oldMap.get(k), n = newMap.get(k);
+    const oc = o ? o.cell : null;
+    const nc = n ? n.cell : null;
+    if (ignoreEmptyBoth && isEmptyCell(oc) && isEmptyCell(nc)) continue;
+    if (!o && n) { added.push({ key: k, loc: n }); continue; }
+    if (o && !n) { removed.push({ key: k, loc: o }); continue; }
+    // both exist
+    if (isEmptyCell(oc) && !isEmptyCell(nc)) { added.push({ key: k, loc: n }); continue; }
+    if (!isEmptyCell(oc) && isEmptyCell(nc)) { removed.push({ key: k, loc: o }); continue; }
+    const changes = diffCellFields(oc, nc, ignoreRuntime);
+    if (changes.length) modified.push({ key: k, oldLoc: o, newLoc: n, changes });
+  }
+  return { added, removed, modified };
+}
+
+function diffArrayById(oldArr, newArr, idField) {
+  const om = new Map(), nm = new Map();
+  for (const it of (oldArr || [])) if (it && it[idField] != null) om.set(String(it[idField]), it);
+  for (const it of (newArr || [])) if (it && it[idField] != null) nm.set(String(it[idField]), it);
+  const added = [], removed = [], modified = [];
+  for (const [k, v] of nm) if (!om.has(k)) added.push({ key: k, item: v });
+  for (const [k, v] of om) if (!nm.has(k)) removed.push({ key: k, item: v });
+  for (const [k, ov] of om) {
+    const nv = nm.get(k); if (!nv) continue;
+    if (JSON.stringify(ov) !== JSON.stringify(nv)) modified.push({ key: k, old: ov, new: nv });
+  }
+  return { added, removed, modified };
+}
+
+function flattenPaths(obj, prefix, out) {
+  // Recurse only through plain objects. Arrays and primitives become leaves.
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
+    out[prefix] = obj;
+    return;
+  }
+  const keys = Object.keys(obj);
+  if (!keys.length) { out[prefix] = obj; return; }
+  for (const k of keys) {
+    const path = prefix ? `${prefix}.${k}` : k;
+    flattenPaths(obj[k], path, out);
+  }
+}
+
+function isPrimArray(v) {
+  return Array.isArray(v) && v.every(x => x === null || typeof x !== 'object');
+}
+
+function primArrayItemDiff(oldArr, newArr) {
+  const oldSet = new Set((oldArr || []).map(String));
+  const newSet = new Set((newArr || []).map(String));
+  const added = [...newSet].filter(x => !oldSet.has(x));
+  const removed = [...oldSet].filter(x => !newSet.has(x));
+  return { added, removed };
+}
+
+function diffSettings(oldObj, newObj) {
+  const oldFlat = {}, newFlat = {};
+  flattenPaths(oldObj || {}, '', oldFlat);
+  flattenPaths(newObj || {}, '', newFlat);
+  const keys = new Set([...Object.keys(oldFlat), ...Object.keys(newFlat)]);
+  const changes = [];
+  for (const k of Array.from(keys).sort()) {
+    if (!k) continue;
+    const hasOld = k in oldFlat, hasNew = k in newFlat;
+    const ov = hasOld ? oldFlat[k] : undefined;
+    const nv = hasNew ? newFlat[k] : undefined;
+    const oldStr = hasOld ? JSON.stringify(ov) : undefined;
+    const newStr = hasNew ? JSON.stringify(nv) : undefined;
+    if (oldStr === newStr) continue;
+    let kind = 'modified';
+    if (!hasOld) kind = 'added';
+    else if (!hasNew) kind = 'removed';
+    const isArr = Array.isArray(ov) || Array.isArray(nv);
+    const primArrDiff = (isArr && isPrimArray(ov) && isPrimArray(nv)) ? primArrayItemDiff(ov, nv) : null;
+    changes.push({ key: k, kind, oldRaw: oldStr, newRaw: newStr, isArr, primArrDiff });
+  }
+  return changes;
+}
+
+function runCompare() {
+  if (!oldData || !newData) return;
+  const ignoreRuntime = document.getElementById('cmpIgnoreRuntime').checked;
+  const ignoreEmptyBoth = document.getElementById('cmpIgnoreEmptyBoth').checked;
+  const byIdEnable = document.getElementById('cmpByIdEnable').checked;
+  const byGridEnable = document.getElementById('cmpByGridEnable').checked;
+
+  const oldCells = collectCellsOf(oldData);
+  const newCells = collectCellsOf(newData);
+
+  const diffs = {
+    byId: byIdEnable ? diffStationsById(oldCells, newCells, ignoreRuntime) : null,
+    byGrid: byGridEnable ? diffStationsByGrid(oldCells, newCells, ignoreRuntime, ignoreEmptyBoth) : null,
+    vehicles: diffArrayById(oldData.vehicles, newData.vehicles, 'id'),
+    eRacks: diffArrayById(oldData.eRacks, newData.eRacks, 'id'),
+    paths: {
+      oldCount: (oldData.paths || []).length,
+      newCount: (newData.paths || []).length,
+      byId: diffArrayById(oldData.paths, newData.paths, 'id'),
+    },
+    shapes: {
+      oldCount: (oldData.shapes || []).length,
+      newCount: (newData.shapes || []).length,
+      byId: diffArrayById(oldData.shapes, newData.shapes, 'id'),
+    },
+    graph: {
+      nodesOld: ((oldData.graph || {}).nodes || []).length,
+      nodesNew: ((newData.graph || {}).nodes || []).length,
+      edgesOld: ((oldData.graph || {}).edges || []).length,
+      edgesNew: ((newData.graph || {}).edges || []).length,
+    },
+    settings: diffSettings(oldData.settings, newData.settings),
+    meta: {
+      oldName, newName,
+      oldProjectName: oldData.projectName || '',
+      newProjectName: newData.projectName || '',
+      oldVersion: oldData.version || '',
+      newVersion: newData.version || '',
+    },
+  };
+
+  lastDiffs = diffs;
+  renderCompareResults(diffs);
+  document.getElementById('cmpExportBtn').disabled = false;
+  document.getElementById('cmpInfo').innerHTML = `比對完成 (${new Date().toLocaleTimeString()})`;
+}
+
+function countBadge(label, n, cls) {
+  const c = n === 0 ? 'zero' : cls;
+  return `<span class="diff-count ${c}">${label} ${n}</span>`;
+}
+
+function renderCompareResults(d) {
+  const parts = [];
+
+  // ---- Meta ----
+  parts.push(`<div class="diff-section">
+    <h3>檔案資訊</h3>
+    <table class="diff-table">
+      <thead><tr><th style="width:70px">版本</th><th>檔名</th><th>projectName</th><th>version</th></tr></thead>
+      <tbody>
+        <tr><td class="k-cell">舊</td><td>${escapeHtml(d.meta.oldName)}</td><td>${escapeHtml(d.meta.oldProjectName)}</td><td>${escapeHtml(d.meta.oldVersion)}</td></tr>
+        <tr><td class="k-cell">新</td><td>${escapeHtml(d.meta.newName)}</td><td>${escapeHtml(d.meta.newProjectName)}</td><td>${escapeHtml(d.meta.newVersion)}</td></tr>
+      </tbody>
+    </table>
+  </div>`);
+
+  if (d.byId)   parts.push(renderStationDiff('Workstations — 以 id 對應', d.byId, 'id'));
+  if (d.byGrid) parts.push(renderStationDiff('Workstations — 以 (floor, row, col) 位置對應', d.byGrid, 'grid'));
+
+  parts.push(renderKeyListDiff('vehicles (JSON 內)', d.vehicles));
+  parts.push(renderKeyListDiff('eRacks (JSON 內)', d.eRacks));
+  parts.push(renderCountAndListDiff('Paths', d.paths.oldCount, d.paths.newCount, d.paths.byId));
+  parts.push(renderCountAndListDiff('Shapes', d.shapes.oldCount, d.shapes.newCount, d.shapes.byId));
+
+  // Graph counts as one table
+  const gr = d.graph;
+  parts.push(renderCountTable('Graph 數量摘要', [
+    { metric: 'nodes', oldV: gr.nodesOld, newV: gr.nodesNew },
+    { metric: 'edges', oldV: gr.edgesOld, newV: gr.edgesNew },
+  ]));
+
+  parts.push(renderSettingsDiff(d.settings));
+
+  document.getElementById('cmpResults').innerHTML = parts.join('');
+  document.getElementById('cmpResultCard').style.display = 'block';
+}
+
+function kindCell(kind) {
+  const map = { added: '+ 新增', removed: '− 移除', modified: '~ 變更' };
+  return `<td class="k-cell k-${kind}">${map[kind]}</td>`;
+}
+
+function fmtLocStr(loc) { return `${loc.floor}[r=${loc.row},c=${loc.col}]`; }
+function fmtCellSummary(c) {
+  const bits = [];
+  if (c.id) bits.push(`id=${c.id}`);
+  if (c.equipmentID) bits.push(`eq=${c.equipmentID}`);
+  if (c.zoneID) bits.push(`zone=${c.zoneID}`);
+  if (c.type) bits.push(`type=${c.type}`);
+  if (c.enabled === false || c.enabled === 'FALSE') bits.push('DIS');
+  return bits.join(' · ') || '(empty)';
+}
+
+function renderStationDiff(title, d, mode) {
+  const addedBadge    = countBadge('+ 新增 ' + d.added.length,    d.added.length,    'added');
+  const removedBadge  = countBadge('− 移除 ' + d.removed.length,  d.removed.length,  'removed');
+  const modifiedBadge = countBadge('~ 變更 ' + d.modified.length, d.modified.length, 'modified');
+
+  const total = d.added.length + d.removed.length + d.modified.length;
+  if (total === 0) {
+    return `<div class="diff-section">
+      <h3>${escapeHtml(title)} ${addedBadge}${removedBadge}${modifiedBadge}</h3>
+      <div class="diff-empty-note">沒有差異</div>
+    </div>`;
+  }
+
+  const rows = [];
+  for (const a of d.added) {
+    const key = mode === 'id' ? a.id : a.key;
+    rows.push(`<tr class="added">
+      ${kindCell('added')}
+      <td>${escapeHtml(key)}</td>
+      <td>${escapeHtml(fmtLocStr(a.loc))}</td>
+      <td class="empty">—</td>
+      <td class="empty">—</td>
+      <td class="new">${escapeHtml(fmtCellSummary(a.loc.cell))}</td>
+    </tr>`);
+  }
+  for (const a of d.removed) {
+    const key = mode === 'id' ? a.id : a.key;
+    rows.push(`<tr class="removed">
+      ${kindCell('removed')}
+      <td>${escapeHtml(key)}</td>
+      <td>${escapeHtml(fmtLocStr(a.loc))}</td>
+      <td class="empty">—</td>
+      <td class="old">${escapeHtml(fmtCellSummary(a.loc.cell))}</td>
+      <td class="empty">—</td>
+    </tr>`);
+  }
+  for (const m of d.modified) {
+    const key = mode === 'id' ? m.id : m.key;
+    const loc = mode === 'id' && (m.oldLoc.floor !== m.newLoc.floor || m.oldLoc.row !== m.newLoc.row || m.oldLoc.col !== m.newLoc.col)
+      ? `${fmtLocStr(m.oldLoc)} → ${fmtLocStr(m.newLoc)}`
+      : fmtLocStr(m.oldLoc);
+    for (const ch of m.changes) {
+      rows.push(`<tr class="modified">
+        ${kindCell('modified')}
+        <td>${escapeHtml(key)}</td>
+        <td>${escapeHtml(loc)}</td>
+        <td>${escapeHtml(ch.field)}</td>
+        <td class="old">${escapeHtml(JSON.stringify(ch.old))}</td>
+        <td class="new">${escapeHtml(JSON.stringify(ch.new))}</td>
+      </tr>`);
+    }
+  }
+
+  return `<div class="diff-section">
+    <h3>${escapeHtml(title)} ${addedBadge}${removedBadge}${modifiedBadge}</h3>
+    <div class="diff-table-wrap">
+      <table class="diff-table">
+        <thead><tr>
+          <th style="width:80px">類別</th>
+          <th style="width:200px">${mode === 'id' ? 'id' : 'grid key'}</th>
+          <th style="width:180px">位置</th>
+          <th style="width:140px">欄位</th>
+          <th>舊值</th>
+          <th>新值</th>
+        </tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderKeyListDiff(title, d) {
+  const total = d.added.length + d.removed.length + d.modified.length;
+  const addedBadge    = countBadge('+ 新增 ' + d.added.length,    d.added.length,    'added');
+  const removedBadge  = countBadge('− 移除 ' + d.removed.length,  d.removed.length,  'removed');
+  const modifiedBadge = countBadge('~ 變更 ' + d.modified.length, d.modified.length, 'modified');
+  if (total === 0) {
+    return `<div class="diff-section">
+      <h3>${escapeHtml(title)} ${addedBadge}${removedBadge}${modifiedBadge}</h3>
+      <div class="diff-empty-note">沒有差異</div>
+    </div>`;
+  }
+  const rows = [];
+  for (const a of d.added)    rows.push(`<tr class="added">${kindCell('added')}<td>${escapeHtml(a.key)}</td></tr>`);
+  for (const a of d.removed)  rows.push(`<tr class="removed">${kindCell('removed')}<td>${escapeHtml(a.key)}</td></tr>`);
+  for (const a of d.modified) rows.push(`<tr class="modified">${kindCell('modified')}<td>${escapeHtml(a.key)}</td></tr>`);
+  return `<div class="diff-section">
+    <h3>${escapeHtml(title)} ${addedBadge}${removedBadge}${modifiedBadge}</h3>
+    <div class="diff-table-wrap">
+      <table class="diff-table">
+        <thead><tr><th style="width:80px">類別</th><th>Key</th></tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderCountAndListDiff(title, oldCount, newCount, byId) {
+  const delta = newCount - oldCount;
+  const deltaBadge = countBadge('Δ ' + (delta >= 0 ? '+' : '') + delta, delta === 0 ? 0 : Math.abs(delta), delta === 0 ? 'zero' : 'modified');
+  const addedBadge    = countBadge('+ ' + byId.added.length,    byId.added.length,    'added');
+  const removedBadge  = countBadge('− ' + byId.removed.length,  byId.removed.length,  'removed');
+  const modifiedBadge = countBadge('~ ' + byId.modified.length, byId.modified.length, 'modified');
+
+  const countTable = `<table class="diff-table">
+      <thead><tr><th>Metric</th><th class="num">Old</th><th class="num">New</th><th class="num">Δ</th></tr></thead>
+      <tbody><tr class="${delta === 0 ? '' : 'modified'}"><td>總數</td><td class="num old">${oldCount}</td><td class="num new">${newCount}</td><td class="num">${delta >= 0 ? '+' : ''}${delta}</td></tr></tbody>
+    </table>`;
+
+  let listTable = '';
+  if (byId.added.length || byId.removed.length || byId.modified.length) {
+    const rows = [];
+    for (const a of byId.added)    rows.push(`<tr class="added">${kindCell('added')}<td>${escapeHtml(a.key)}</td></tr>`);
+    for (const a of byId.removed)  rows.push(`<tr class="removed">${kindCell('removed')}<td>${escapeHtml(a.key)}</td></tr>`);
+    for (const a of byId.modified) rows.push(`<tr class="modified">${kindCell('modified')}<td>${escapeHtml(a.key)}</td></tr>`);
+    listTable = `<div class="diff-table-wrap" style="margin-top:12px">
+      <table class="diff-table">
+        <thead><tr><th style="width:80px">類別</th><th>id</th></tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>`;
+  }
+  return `<div class="diff-section">
+    <h3>${escapeHtml(title)} ${deltaBadge} ${addedBadge}${removedBadge}${modifiedBadge}</h3>
+    ${countTable}
+    ${listTable}
+  </div>`;
+}
+
+function renderCountTable(title, rows) {
+  const bodyRows = rows.map(r => {
+    const delta = r.newV - r.oldV;
+    return `<tr class="${delta === 0 ? '' : 'modified'}">
+      <td>${escapeHtml(r.metric)}</td>
+      <td class="num old">${r.oldV}</td>
+      <td class="num new">${r.newV}</td>
+      <td class="num">${delta >= 0 ? '+' : ''}${delta}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="diff-section">
+    <h3>${escapeHtml(title)}</h3>
+    <table class="diff-table">
+      <thead><tr><th>Metric</th><th class="num">Old</th><th class="num">New</th><th class="num">Δ</th></tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderValueCell(raw, cls, primArr, side) {
+  // raw: JSON string or undefined; cls: 'old' | 'new'
+  if (raw === undefined) return '<td class="empty">—</td>';
+  // Show primitive-array diff summary inline if applicable
+  if (primArr) {
+    const items = side === 'old' ? primArr.removed : primArr.added;
+    const label = side === 'old' ? '− 移除' : '+ 新增';
+    const arrLen = (() => { try { return JSON.parse(raw).length; } catch (_) { return '?'; } })();
+    const listHtml = items.length
+      ? `<div style="margin-top:4px">${items.map(x => `<div class="${cls}">${side === 'old' ? '−' : '+'} ${escapeHtml(x)}</div>`).join('')}</div>`
+      : '';
+    return `<td class="${cls}"><span class="diff-count ${cls === 'old' ? 'removed' : 'added'}">[${arrLen} items]</span>` +
+      (items.length ? ` <span class="small">${label} ${items.length}</span>` : '') +
+      listHtml + '</td>';
+  }
+  // For other long values (e.g. array of objects), collapse into details
+  const LONG = 120;
+  if (raw.length > LONG) {
+    return `<td class="${cls}"><details><summary style="cursor:pointer">${escapeHtml(raw.slice(0, LONG))}… <span class="small">(${raw.length} chars)</span></summary><pre style="white-space:pre-wrap; word-break:break-all; margin:6px 0 0; max-height:300px; overflow:auto">${escapeHtml(raw)}</pre></details></td>`;
+  }
+  return `<td class="${cls}">${escapeHtml(raw)}</td>`;
+}
+
+function renderSettingsDiff(changes) {
+  const added    = changes.filter(c => c.kind === 'added').length;
+  const removed  = changes.filter(c => c.kind === 'removed').length;
+  const modified = changes.filter(c => c.kind === 'modified').length;
+  const badge = `${countBadge('+ 新增 ' + added, added, 'added')}${countBadge('− 移除 ' + removed, removed, 'removed')}${countBadge('~ 變更 ' + modified, modified, 'modified')}`;
+  if (changes.length === 0) {
+    return `<div class="diff-section">
+      <h3>settings ${badge}</h3>
+      <div class="diff-empty-note">沒有差異</div>
+    </div>`;
+  }
+  const rows = changes.map(c => {
+    const oldCell = renderValueCell(c.oldRaw, 'old', c.primArrDiff, 'old');
+    const newCell = renderValueCell(c.newRaw, 'new', c.primArrDiff, 'new');
+    return `<tr class="${c.kind}">
+      ${kindCell(c.kind)}
+      <td>${escapeHtml(c.key)}</td>
+      ${oldCell}
+      ${newCell}
+    </tr>`;
+  }).join('');
+  return `<div class="diff-section">
+    <h3>settings ${badge}</h3>
+    <div class="diff-table-wrap">
+      <table class="diff-table">
+        <thead><tr><th style="width:80px">類別</th><th style="width:320px">Setting Path</th><th>舊值</th><th>新值</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function exportDiffCSV() {
+  if (!lastDiffs) return;
+  const d = lastDiffs;
+  const rows = [['Section', 'Kind', 'Key', 'Location', 'Field', 'OldValue', 'NewValue']];
+
+  function pushStationDiff(sectionName, sd, mode) {
+    if (!sd) return;
+    for (const a of sd.added)   rows.push([sectionName, 'added',   mode === 'id' ? a.id : a.key, `${a.loc.floor}[r=${a.loc.row},c=${a.loc.col}]`, '', '', JSON.stringify(a.loc.cell)]);
+    for (const a of sd.removed) rows.push([sectionName, 'removed', mode === 'id' ? a.id : a.key, `${a.loc.floor}[r=${a.loc.row},c=${a.loc.col}]`, '', JSON.stringify(a.loc.cell), '']);
+    for (const m of sd.modified) {
+      const oldLoc = m.oldLoc, newLoc = m.newLoc;
+      const locStr = mode === 'id'
+        ? `${oldLoc.floor}[r=${oldLoc.row},c=${oldLoc.col}] → ${newLoc.floor}[r=${newLoc.row},c=${newLoc.col}]`
+        : `${oldLoc.floor}[r=${oldLoc.row},c=${oldLoc.col}]`;
+      for (const ch of m.changes) {
+        rows.push([sectionName, 'modified', mode === 'id' ? m.id : m.key, locStr, ch.field, JSON.stringify(ch.old), JSON.stringify(ch.new)]);
+      }
+    }
+  }
+  pushStationDiff('workstations.byId', d.byId, 'id');
+  pushStationDiff('workstations.byGrid', d.byGrid, 'grid');
+
+  const arrSections = [['vehicles', d.vehicles], ['eRacks', d.eRacks], ['paths.byId', d.paths.byId], ['shapes.byId', d.shapes.byId]];
+  for (const [name, sd] of arrSections) {
+    for (const a of sd.added)   rows.push([name, 'added',   a.key, '', '', '', JSON.stringify(a.item || '')]);
+    for (const a of sd.removed) rows.push([name, 'removed', a.key, '', '', JSON.stringify(a.item || ''), '']);
+    for (const m of sd.modified) rows.push([name, 'modified', m.key, '', '', JSON.stringify(m.old), JSON.stringify(m.new)]);
+  }
+  rows.push(['paths.count', 'modified', 'total', '', 'count', d.paths.oldCount, d.paths.newCount]);
+  rows.push(['shapes.count', 'modified', 'total', '', 'count', d.shapes.oldCount, d.shapes.newCount]);
+  rows.push(['graph.nodes', 'modified', 'total', '', 'count', d.graph.nodesOld, d.graph.nodesNew]);
+  rows.push(['graph.edges', 'modified', 'total', '', 'count', d.graph.edgesOld, d.graph.edgesNew]);
+  for (const c of d.settings) rows.push(['settings', 'modified', c.key, '', '', c.oldRaw || '', c.newRaw || '']);
+
+  const csv = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const baseOld = (oldName || 'old').replace(/\.json$/i, '');
+  const baseNew = (newName || 'new').replace(/\.json$/i, '');
+  a.href = url;
+  a.download = `diff_${baseOld}_vs_${baseNew}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
