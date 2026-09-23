@@ -7,6 +7,7 @@ Config in config.ini (chmod 600).
 """
 import configparser
 import os
+import re
 
 import pymysql
 from flask import Flask, jsonify, render_template, request, send_from_directory
@@ -39,6 +40,72 @@ def db():
 
 
 # ---------- pages (Jinja templates) ----------
+
+def parse_changelog(path, limit=4):
+    """Parse CHANGELOG.md into a list of {version, entries: [{kind, text}]} dicts."""
+    out = []
+    if not os.path.isfile(path):
+        return out
+    current = None
+    with open(path, "r", encoding="utf-8") as f:
+        for raw in f:
+            line = raw.rstrip()
+            m = re.match(r"^##\s+(v[\d.]+)(?:\s+—\s+(.+))?", line)
+            if m:
+                if current:
+                    out.append(current)
+                    if len(out) >= limit:
+                        return out
+                current = {"version": m.group(1), "note": (m.group(2) or "").strip(), "entries": []}
+                continue
+            if current is None:
+                continue
+            m2 = re.match(r"^\*\s+\*\*(\w+):\*\*\s+(.+)$", line)
+            if m2:
+                text = m2.group(2)
+                # Convert markdown `code` and **bold** to HTML for safe rendering
+                text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+                text = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
+                current["entries"].append({"kind": m2.group(1), "text": text})
+    if current and len(out) < limit:
+        out.append(current)
+    return out
+
+
+def read_exclude_devices():
+    try:
+        conn = db()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT `value`, updated_at FROM settings WHERE `name` = %s",
+                ("exclude_devices",),
+            )
+            row = cur.fetchone()
+        conn.close()
+        if not row:
+            return {"value": "", "updated_at": None}
+        return {
+            "value": row["value"] or "",
+            "updated_at": row["updated_at"].strftime("%Y-%m-%d %H:%M:%S") if row["updated_at"] else None,
+        }
+    except Exception:
+        return {"value": "", "updated_at": None}
+
+
+@app.route("/home")
+def home_page():
+    changelog = parse_changelog(os.path.join(BASE_DIR, "CHANGELOG.md"), limit=4)
+    excl = read_exclude_devices()
+    excl_chips = [s.strip() for s in excl["value"].split(",") if s.strip()]
+    return render_template(
+        "home.html",
+        active="home",
+        changelog=changelog,
+        exclude_chips=excl_chips,
+        exclude_updated_at=excl["updated_at"],
+        server_port=SERVER_PORT,
+    )
+
 
 @app.route("/")
 def index():

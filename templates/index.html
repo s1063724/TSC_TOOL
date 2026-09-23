@@ -38,7 +38,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="small" style="margin-bottom:10px">依 Workstation xlsx 產生 Source/Dest 兩兩配對的派令 CSV。所有處理都在瀏覽器內完成。</div>
+<div class="page-hero">
+  <div class="breadcrumb"><span class="no">01</span>派令產生 · MCS DISPATCH</div>
+  <div class="hero-row">
+    <h1>派令產生</h1>
+    <span class="page-slug">/</span>
+  </div>
+  <p class="hero-desc">依 Workstation xlsx 分池、同池 device 兩兩配對產生 Source → Dest 排列的 MCS 派令 CSV。xlsx 只在瀏覽器內處理,preset 存到 Linux 端 MariaDB。</p>
+</div>
 
 <div class="card">
   <h2>Step 1. 上傳 Workstation xlsx</h2>

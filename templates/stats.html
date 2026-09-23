@@ -39,7 +39,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="small" style="margin-bottom:10px">上傳 TSC UI log (含 <code>[ALARM]</code> 事件),解析後產出摘要、統計表、時間軸折線圖。全部處理在瀏覽器內。</div>
+<div class="page-hero">
+  <div class="breadcrumb"><span class="no">03</span>TSC UI LOG</div>
+  <div class="hero-row">
+    <h1>異常統計</h1>
+    <span class="page-slug">/stats</span>
+  </div>
+  <p class="hero-desc">上傳 TSC UI log (含 <code>[ALARM]</code> 事件),解析後產出摘要、統計表、時間軸折線圖。全部處理在瀏覽器內。</p>
+</div>
 
 <div class="card">
   <h2>Step 1. 上傳 log</h2>
@@ -375,7 +382,7 @@ function renderChart(filtered, groups, topN) {
   }
 
   // Palette (color per series)
-  const palette = ['#4a9eff','#ff6b6b','#4ade80','#f5d76e','#ffa657','#c084fc','#22d3ee','#f472b6','#a3e635','#fb923c','#94a3b8','#e879f9'];
+  const palette = ['#5980a6','#b3402f','#2f7a4a','#8a6a12','#b35a1e','#7a5aa6','#2f8a9a','#a64a78','#5d7a2f','#2c455d','#7a7a7d','#8a4a2f'];
   const datasets = [];
   let ci = 0;
   for (const g of topGroups) {
@@ -393,8 +400,8 @@ function renderChart(filtered, groups, topN) {
     datasets.push({
       label: 'Others',
       data: othersSeries,
-      borderColor: '#8a9099',
-      backgroundColor: '#8a909933',
+      borderColor: '#5d5d60',
+      backgroundColor: '#5d5d6033',
       borderDash: [4, 4],
       tension: 0.2,
       pointRadius: 2,
@@ -411,13 +418,13 @@ function renderChart(filtered, groups, topN) {
       maintainAspectRatio: false,
       interaction: { mode: 'nearest', intersect: false },
       plugins: {
-        legend: { labels: { color: '#d8dde3', font: { size: 13 } } },
-        title: { display: true, text: `時間桶: ${bucket} · ${bucketKeys.length} 個 bucket`, color: '#8a9099', font: { size: 12 } },
+        legend: { labels: { color: '#1d1f20', font: { size: 13 } } },
+        title: { display: true, text: `時間桶: ${bucket} · ${bucketKeys.length} 個 bucket`, color: '#5d5d60', font: { size: 12 } },
         tooltip: { titleFont: { size: 13 }, bodyFont: { size: 12 } },
       },
       scales: {
-        x: { ticks: { color: '#8a9099', maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 }, grid: { color: '#3a4048' } },
-        y: { beginAtZero: true, ticks: { color: '#8a9099', precision: 0 }, grid: { color: '#3a4048' } },
+        x: { ticks: { color: '#5d5d60', maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 }, grid: { color: '#d4d4d7' } },
+        y: { beginAtZero: true, ticks: { color: '#5d5d60', precision: 0 }, grid: { color: '#d4d4d7' } },
       },
     },
   });

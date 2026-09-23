@@ -1,5 +1,12 @@
 # TSC TOOL Changelog
 
+## v2.5.260923
+* **Added:** Home Page - New `/home` overview page: dark navy header, hero with version badge + server URL, 3-card grid (01 派令產生 / 02 檢查重複設定 / 03 異常統計) showing input/output samples and action buttons, 系統狀態 table (Flask service status via `/api/health`, MariaDB status, `exclude_devices` chips, last settings update), and 更新紀錄 rendered from CHANGELOG.md (kind badges Added/Fixed/Changed/Updated).
+* **Added:** app.py - `parse_changelog()` reads `CHANGELOG.md` and returns the top N version entries (default 4) with markdown backticks and `**bold**` converted to inline `<code>` / `<b>` tags. `read_exclude_devices()` fetches the current shared exclude list from DB for the overview page.
+* **Changed:** Page hero pattern - `_base.html` gains `.page-hero / .breadcrumb / .page-slug / .hero-row / .hero-desc` styles for a uniform breadcrumb + H1 + right-side URL slug + description layout. Applied to `/`, `/check`, `/stats` so each page has "NN · SECTION" breadcrumb, big Barlow Condensed title, and its route slug (e.g. `/check`) on the right.
+* **Changed:** UI Theme - Light industrial theme applied via `_base.html`: `#f2f2f3` ground, `#5980a6` steel-blue accent, `#1d2d3d` deep-navy header, Barlow / Barlow Condensed fonts, square hairline borders, dashed technical corner marks on `.card` (auto-injected by base script), auto-numbered `Step N.` headings. Badges/tags/tables restyled through override rules.
+* **Added:** Header - Live health indicator on the right of the navbar; polls `/api/health` on load and colors the dot green/red.
+
 ## v2.4.260923
 * **Changed:** Templates - HTML pages migrated from flat root files to Jinja templates under `templates/`. Introduced `_base.html` (skeleton + shared CSS: `:root` vars, body/h1/h2/form controls/buttons/utility classes/scrollbar/**site-header**) and `_header.html` (nav partial with `{% if active == 'X' %}class="active"{% endif %}` logic). Each page (`index.html` / `check.html` / `stats.html`) now `{% extends '_base.html' %}` with page-specific CSS/scripts inside blocks (`head_scripts` / `extra_styles` / `content` / `scripts`). Single source of truth for the header — future nav additions or restyling touch only `_base.html` / `_header.html`.
 * **Changed:** app.py - Routes migrated from `send_from_directory` to `render_template("<name>", active="<slug>")`. Static file catch-all still serves other assets from `BASE_DIR` (e.g. offline SheetJS/Chart.js if downloaded); explicitly forbids `templates/` prefix.

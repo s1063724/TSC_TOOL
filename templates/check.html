@@ -53,7 +53,14 @@ table { width: 100%; border-collapse: collapse; font-size: 12pt; }
 {% endblock %}
 
 {% block content %}
-<div class="small" style="margin-bottom:6px">在 TSC project JSON 上做重複檢查或新舊版本比對,全部在瀏覽器內處理,原檔不動。</div>
+<div class="page-hero">
+  <div class="breadcrumb"><span class="no">02</span>TSC PROJECT JSON</div>
+  <div class="hero-row">
+    <h1>檢查重複設定 · 新舊專案比對</h1>
+    <span class="page-slug">/check</span>
+  </div>
+  <p class="hero-desc">在 TSC project JSON 上做重複檢查或新舊版本比對。全部處理在瀏覽器內,原檔不動。</p>
+</div>
 
 <div class="tabs">
   <button class="tab-btn active" data-mode="dupe" type="button">檢查重複設定</button>
@@ -982,5 +989,7 @@ function exportDiffCSV() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+if (location.hash === '#compare') switchMode('compare');
 </script>
 {% endblock %}

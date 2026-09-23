@@ -1,0 +1,165 @@
+{% extends '_base.html' %}
+{% block title %}TSC TOOL — 總覽{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .home-hero h1 { font-size: 38pt; }
+  .version-badge { font: 500 12pt var(--font-mono); color: var(--text-dim); margin-left: 12px; letter-spacing: 0.05em; }
+  .hero-right { text-align: right; }
+  .hero-right code { font-size: 11pt; padding: 1px 6px; background: var(--code-bg); color: var(--code-text); }
+  .hero-right .cmd { display: block; margin-top: 4px; font-family: var(--font-mono); font-size: 10.5pt; color: var(--text-dim); }
+
+  .tool-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-top: 8px; }
+  .tool-grid .card { margin: 0; padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; min-height: 260px; }
+  .tool-grid .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .tool-grid .num { font: 600 26pt/1 var(--font-heading); color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+  .tool-grid .slug { font: 500 11pt var(--font-mono); color: var(--text-dim); }
+  .tool-grid h2 { font-size: 18pt; margin: 0 0 4px; display: block; }
+  .tool-grid p { margin: 0; font-size: 12pt; color: var(--text-dim); line-height: 1.55; }
+  .tool-grid .io { font-size: 10.5pt; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+  .tool-grid .io span { display: block; margin: 2px 0; }
+  .tool-grid .io b { font-family: var(--font-mono); font-weight: 500; color: var(--text); font-size: 10.5pt; }
+  .tool-grid .links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
+  .tool-grid .links a { text-decoration: none; }
+  @media (max-width: 1100px) { .tool-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .section-title { font: 500 10pt var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); margin: 44px 0 12px; }
+  .kv-table { width: 100%; border-collapse: collapse; font-size: 12pt; }
+  .kv-table td { padding: 12px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .kv-table tr:last-child td { border-bottom: 0; }
+  .kv-table .k { width: 160px; color: var(--text-dim); font-size: 11pt; }
+  .kv-table .v { color: var(--text); font-family: var(--font-mono); font-size: 11pt; }
+  .kv-table .chip { display: inline-block; padding: 2px 8px; background: var(--code-bg); color: var(--code-text); font-family: var(--font-mono); font-size: 10.5pt; margin: 2px 6px 2px 0; }
+  .kv-table .dot { display: inline-block; width: 8px; height: 8px; background: #98989b; margin-right: 8px; vertical-align: middle; }
+  .kv-table .dot.ok { background: var(--ok); }
+  .kv-table .dot.bad { background: var(--warn); }
+
+  .changelog-list { border-top: 1px solid var(--border); }
+  .changelog-row { display: grid; grid-template-columns: 140px 1fr; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .changelog-row .ver { font: 500 11pt var(--font-mono); color: var(--accent-ink); padding-top: 2px; }
+  .changelog-row .entries { color: var(--text-dim); font-size: 11.5pt; line-height: 1.55; }
+  .changelog-row .kind { display: inline-block; padding: 1px 7px; font: 600 9pt var(--font-heading); letter-spacing: 0.05em; text-transform: uppercase; margin-right: 8px; vertical-align: 2px; }
+  .changelog-row .kind.Added   { background: #e3f1e7; color: var(--ok); }
+  .changelog-row .kind.Fixed   { background: #f8e6e2; color: var(--warn); }
+  .changelog-row .kind.Changed { background: var(--bg-chip); color: var(--accent-ink); }
+  .changelog-row .kind.Updated { background: var(--bg-chip); color: var(--accent-ink); }
+  .changelog-row .kind.Removed { background: #e7e7ea; color: var(--text-dim); }
+  .changelog-row .kind.Merged  { background: #e3f1e7; color: var(--ok); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-hero home-hero">
+  <div class="breadcrumb"><span class="no">總覽</span>OVERVIEW</div>
+  <div class="hero-row">
+    <h1>TSC TOOL{% if changelog %}<span class="version-badge">{{ changelog[0].version }}</span>{% endif %}</h1>
+    <div class="hero-right">
+      <code id="homeUrl">http://&lt;linux IP&gt;:{{ server_port }}/</code>
+      <span class="cmd">systemctl --user status tsc-tool</span>
+    </div>
+  </div>
+  <p class="hero-desc">MCS 派令產生、TSC project JSON 檢查與比對、TSC UI log 異常統計。檔案全部在瀏覽器內處理,原檔不動。</p>
+</div>
+
+<div class="tool-grid">
+  <div class="card">
+    <div class="card-head"><span class="num">01</span><span class="slug">/</span></div>
+    <h2>派令產生</h2>
+    <p>依 Workstation xlsx 產生 MCS 派令 CSV。派令按 Zone 分池,同池 device 兩兩配對產生 Source → Dest 排列。</p>
+    <div class="io">
+      <span>輸入 <b>Workstation_5F.xlsx</b></span>
+      <span>輸出 <b>dispatch.csv</b></span>
+    </div>
+    <div class="links"><a href="/"><button class="btn-secondary" type="button">開啟 →</button></a></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="num">02</span><span class="slug">/check</span></div>
+    <h2>檢查重複設定 · 新舊專案比對</h2>
+    <p>掃描 workstations 找出重複的 <code>id</code> / <code>portID</code>,並可刪除匯出;或比對兩版 project JSON 的 workstations、vehicles、paths、graph 與 settings。</p>
+    <div class="io">
+      <span>輸入 <b>TSC project .json</b></span>
+      <span>輸出 <b>duplicates.csv · deduped.json · diff.csv</b></span>
+    </div>
+    <div class="links">
+      <a href="/check"><button class="btn-secondary" type="button">檢查重複 →</button></a>
+      <a href="/check#compare"><button class="btn-secondary" type="button">新舊比對 →</button></a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="num">03</span><span class="slug">/stats</span></div>
+    <h2>異常統計</h2>
+    <p>解析 TSC UI log 的 <code>[ALARM]</code> 事件,依 Code / SubCode 彙總、畫出時間軸,並列出影響的 device。</p>
+    <div class="io">
+      <span>輸入 <b>.log / .txt</b> (多檔)</span>
+      <span>輸出 <b>alarm_stats.csv</b></span>
+    </div>
+    <div class="links"><a href="/stats"><button class="btn-secondary" type="button">開啟 →</button></a></div>
+  </div>
+</div>
+
+<div class="section-title">系統狀態</div>
+<table class="kv-table">
+  <tr>
+    <td class="k">Flask 服務</td>
+    <td class="v"><span id="svcDot" class="dot"></span><span id="svcText">tsc-tool.service · 檢查中…</span></td>
+  </tr>
+  <tr>
+    <td class="k">MariaDB</td>
+    <td class="v"><span id="dbDot" class="dot"></span><span id="dbText">tsc_tool · 檢查中…</span></td>
+  </tr>
+  <tr>
+    <td class="k">exclude_devices</td>
+    <td class="v">
+      {% if exclude_chips %}
+        {% for c in exclude_chips %}<span class="chip">{{ c }}</span>{% endfor %}
+      {% else %}
+        <span class="chip" style="opacity:.5">(空)</span>
+      {% endif %}
+    </td>
+  </tr>
+  <tr>
+    <td class="k">settings 更新</td>
+    <td class="v">{{ exclude_updated_at or '—' }}</td>
+  </tr>
+</table>
+
+<div class="section-title">更新紀錄</div>
+<div class="changelog-list">
+  {% for e in changelog %}
+  <div class="changelog-row">
+    <div class="ver">{{ e.version }}</div>
+    <div class="entries">
+      {% for ent in e.entries[:3] %}
+        <div><span class="kind {{ ent.kind }}">{{ ent.kind }}</span>{{ ent.text|safe }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // Fill URL with actual host
+  var el = document.getElementById('homeUrl');
+  if (el) el.textContent = 'http://' + location.hostname + ':' + (location.port || '80') + '/';
+
+  // Poll /api/health to show live status
+  fetch('/api/health').then(function (r) { return r.json(); }).then(function (j) {
+    var sd = document.getElementById('svcDot'), st = document.getElementById('svcText');
+    sd.className = 'dot ok'; st.textContent = 'tsc-tool.service · active';
+    var dd = document.getElementById('dbDot'), dt = document.getElementById('dbText');
+    if (j.ok) { dd.className = 'dot ok'; dt.textContent = 'tsc_tool · ' + JSON.stringify({ok: true, db: 'ok'}); }
+    else      { dd.className = 'dot bad'; dt.textContent = 'tsc_tool · error'; }
+  }).catch(function () {
+    var sd = document.getElementById('svcDot'), st = document.getElementById('svcText');
+    sd.className = 'dot bad'; st.textContent = 'tsc-tool.service · api 無回應';
+    var dd = document.getElementById('dbDot'), dt = document.getElementById('dbText');
+    dd.className = 'dot bad'; dt.textContent = 'tsc_tool · —';
+  });
+})();
+</script>
+{% endblock %}
