@@ -1,0 +1,596 @@
+{% extends '_base.html' %}
+
+{% block title %}TSC TOOL — 車端 Log{% endblock %}
+
+{% block extra_styles %}
+<style>
+  /* Upload zone (mirrors stats page) */
+  .upload-zone {
+    border: 1px dashed var(--border-input); padding: 22px 20px; margin: 8px 0 4px;
+    text-align: center; transition: border-color .15s, background .15s; color: var(--text-dim);
+  }
+  .upload-zone.drag { border-color: var(--accent); background: var(--bg-chip); color: var(--text); }
+  .upload-zone strong { color: var(--text); font-family: var(--font-heading); font-weight: 600; letter-spacing: 0.02em; }
+  .upload-zone .hint { font-size: 10.5pt; margin-top: 6px; }
+  .upload-actions { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; }
+  .upload-actions .summary { font-family: var(--font-mono); font-size: 11pt; color: var(--text-dim); }
+  .file-list { border-top: 1px solid var(--border); margin-top: 10px; }
+  .file-row  { display: grid; grid-template-columns: 1fr auto auto auto; gap: 20px;
+               padding: 9px 0; border-bottom: 1px solid var(--border);
+               align-items: center; font: 11pt var(--font-mono); }
+  .file-row:last-child { border-bottom: 0; }
+  .file-row .name   { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-row .stat   { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .file-row .status { color: var(--accent-ink); font-size: 10pt; }
+  .file-row.parsing .status { color: var(--warning); }
+  .file-row.error   .status { color: var(--warn); }
+  .progress { height: 3px; background: var(--border); margin: 8px 0 4px; overflow: hidden; }
+  .progress .bar { height: 100%; background: var(--accent); width: 0; transition: width .15s; }
+
+  /* Filter row */
+  .filter-row  { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin: 12px 0; }
+  .filter-row .field { display: flex; align-items: center; gap: 8px; }
+  .filter-row .field-label { font-size: 10.5pt; color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase; }
+  .filter-row input[type=text], .filter-row select {
+    padding: 5px 8px; font: 11pt var(--font-mono); border: 1px solid var(--border-input);
+    background: var(--bg); color: var(--text);
+  }
+  .pill-toggle { display: inline-flex; border: 1px solid var(--border); }
+  .pill-toggle .p { padding: 6px 14px; font: 500 11pt var(--font-heading); color: var(--text-dim); cursor: pointer; user-select: none; background: transparent; }
+  .pill-toggle .p + .p { border-left: 1px solid var(--border); }
+  .pill-toggle .p.on { background: var(--accent-deep); color: var(--bg); }
+  .pill-toggle .p:not(.on):hover { color: var(--text); background: rgba(29,31,32,0.05); }
+
+  /* Packet table */
+  .pkt-table  { width: 100%; border-collapse: collapse; font: 11.5pt var(--font-mono); }
+  .pkt-table th, .pkt-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .pkt-table th { position: sticky; top: 0; background: var(--bg); z-index: 1; font: 600 10pt var(--font-heading); letter-spacing: 0.04em; color: var(--text-dim); text-transform: uppercase; }
+  .pkt-table td.num  { text-align: right; color: var(--text-dim); width: 60px; }
+  .pkt-table td.ts   { white-space: nowrap; width: 170px; color: var(--text); }
+  .pkt-table td.dir  { width: 44px; text-align: center; }
+  .pkt-table td.msg  { width: 70px; font-weight: 600; color: var(--accent-ink); }
+  .pkt-table td.desc { color: var(--text); font: 11pt var(--font-body); }
+  .pkt-table td.sz   { text-align: right; color: var(--text-dim); width: 50px; }
+  .pkt-table td.payload { color: var(--code-text); font-size: 10.5pt; word-break: break-all; }
+  .pkt-table tr.pkt-row { cursor: pointer; }
+  .pkt-table tr.pkt-row:hover td { background: var(--bg-chip); }
+  .pkt-table tr.pkt-row.open td { background: var(--bg-chip); }
+  .pkt-table tbody tr.detail-row td { background: var(--bg-chip); padding: 0; }
+  .pkt-table-wrap { max-height: 640px; overflow: auto; border: 1px solid var(--border); margin-top: 8px; }
+  .dir-tag  { display: inline-block; padding: 1px 6px; font: 600 10pt var(--font-heading); letter-spacing: 0.04em; }
+  .dir-tag.OUT { background: #eaf0f6; color: #2c455d; }
+  .dir-tag.IN  { background: #f6efd9; color: var(--warning); }
+
+  /* Decode panel */
+  .decode-panel { padding: 14px 18px; }
+  .decode-head  { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .decode-title { font: 600 11pt var(--font-heading); color: var(--text); letter-spacing: 0.03em; }
+  .decode-title code { background: transparent; color: var(--accent-ink); font-family: var(--font-mono); font-size: 11pt; }
+  .decode-meta  { font: 10.5pt var(--font-mono); color: var(--text-dim); }
+  .decode-fields { border: 1px solid var(--border); background: var(--bg); }
+  .decode-fields table { width: 100%; border-collapse: collapse; font: 11pt var(--font-mono); }
+  .decode-fields th, .decode-fields td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  .decode-fields th { background: var(--bg-chip); font: 600 10pt var(--font-heading); letter-spacing: 0.03em; color: var(--text-dim); text-transform: uppercase; }
+  .decode-fields tr:last-child td { border-bottom: 0; }
+  .decode-fields td.range { width: 80px; color: var(--text-dim); }
+  .decode-fields td.value { width: 160px; padding-left: 18px; color: var(--accent-ink); font-weight: 600; border-left: 1px solid var(--border); }
+  .decode-fields td.name  { width: 320px; padding-left: 18px; color: var(--text); font: 11pt var(--font-body); border-left: 1px solid var(--border); }
+  .decode-fields td.meaning { padding-left: 18px; color: var(--text-dim); font: 11pt var(--font-body); border-left: 1px solid var(--border); }
+  .decode-fields th.value, .decode-fields th.name, .decode-fields th.meaning { padding-left: 18px; }
+  .decode-warn  { color: var(--warn); font: 10.5pt var(--font-body); margin: 4px 0 0; }
+
+  /* Byte grid: shows every byte with its 1-based position */
+  .byte-grid { display: flex; flex-wrap: wrap; gap: 2px; margin: 10px 0 6px; }
+  .byte-cell { position: relative; min-width: 20px; padding: 12px 4px 4px; text-align: center;
+               background: var(--bg); border: 1px solid var(--border); font: 11pt var(--font-mono); color: var(--text); }
+  .byte-cell .pos { position: absolute; top: 1px; left: 2px; font: 500 8pt var(--font-heading); color: var(--text-dim); }
+  .byte-cell.hl { background: #f6efd9; }
+  .byte-cell.hdr { background: var(--code-bg); color: var(--code-text); }
+
+  .decode-actions { margin-top: 8px; display: flex; gap: 10px; align-items: center; }
+  .btn-mini { font: 500 10pt var(--font-heading); padding: 4px 10px; background: transparent;
+              color: var(--text); border: 1px solid var(--border); cursor: pointer; letter-spacing: 0.03em; }
+  .btn-mini:hover { background: var(--bg-chip); border-color: var(--accent); }
+
+  /* Pagination */
+  .pager { display: flex; gap: 12px; align-items: center; margin-top: 8px; font: 500 11pt var(--font-mono); color: var(--text-dim); }
+  .pager button { padding: 3px 10px; background: transparent; border: 1px solid var(--border);
+                  font: 500 11pt var(--font-heading); color: var(--text); cursor: pointer; }
+  .pager button:disabled { color: var(--text-dim); cursor: not-allowed; }
+  .pager .info { font-variant-numeric: tabular-nums; }
+
+  .run-info { display: inline-block; margin-left: 12px; font-size: 10.5pt; color: var(--text-dim); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+  <div class="breadcrumb"><span class="no">04</span>VEHICLE PACKET DECODE</div>
+  <div class="hero-row">
+    <h1>車端 Log</h1>
+    <span class="page-slug">/vehicle</span>
+  </div>
+  <p class="hero-desc">上傳車端 raw log,依 TSC/AGVL Spec 版本自動拆解每個 packet 的欄位,不用再手動數第幾個 byte。</p>
+</div>
+
+<div class="card">
+  <h2>Step 1. 上傳車端 log</h2>
+  <div id="dropZone" class="upload-zone">
+    <strong>拖曳 log 檔到這裡</strong>,或
+    <input type="file" id="logFile" multiple style="display:inline-block">
+    <div class="hint">支援 <code>Gyro_CR201_raw.log</code>、<code>*.log.2026-09-21</code> 等。多檔一次選,已上傳的檔會保留。只解析含 <code>TSC =&gt;</code> / <code>TSC &lt;=</code> 的行。</div>
+  </div>
+  <div class="upload-actions">
+    <span class="summary" id="totalSummary">尚未上傳</span>
+    <div>
+      <button type="button" class="btn-secondary" id="clearBtn" disabled>清空</button>
+    </div>
+  </div>
+  <div class="progress" id="progressWrap" style="display:none"><div class="bar" id="progressBar"></div></div>
+  <div class="file-list" id="fileList"></div>
+</div>
+
+<div class="card" id="optCard" style="display:none">
+  <h2>Step 2. 選 Spec 版本 + 過濾</h2>
+
+  <div class="filter-row">
+    <div class="field">
+      <span class="field-label">Spec 版本</span>
+      <select id="specSel"></select>
+      <span class="run-info" id="specInfo"></span>
+    </div>
+  </div>
+
+  <div class="filter-row">
+    <div class="field">
+      <span class="field-label">方向</span>
+      <div class="pill-toggle" id="dirToggle">
+        <span class="p on" data-d="all">全部</span>
+        <span class="p" data-d="OUT">TSC =&gt; Loc</span>
+        <span class="p" data-d="IN">TSC &lt;= Loc</span>
+      </div>
+    </div>
+    <div class="field">
+      <span class="field-label">Msg ID</span>
+      <input type="text" id="msgFilter" placeholder="P25,S82 (可空)" style="width:180px">
+    </div>
+    <div class="field">
+      <span class="field-label">Payload 搜尋</span>
+      <input type="text" id="payloadFilter" placeholder="片段字串 (可空)" style="width:220px">
+    </div>
+    <div class="field">
+      <span class="field-label">時間 從</span>
+      <input type="text" id="tsFrom" placeholder="YYYY-MM-DD HH:MM:SS" style="width:160px">
+      <span class="field-label">到</span>
+      <input type="text" id="tsTo" placeholder="YYYY-MM-DD HH:MM:SS" style="width:160px">
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="runBtn" type="button">套用過濾</button>
+    <span id="runInfo" class="run-info"></span>
+  </div>
+</div>
+
+<div class="card" id="tableCard" style="display:none">
+  <h2>Packet 列表</h2>
+  <div class="pkt-table-wrap">
+    <table class="pkt-table">
+      <thead><tr>
+        <th class="num">#</th>
+        <th>時間</th>
+        <th>方向</th>
+        <th>Msg</th>
+        <th>描述</th>
+        <th class="sz">Size</th>
+        <th>Payload</th>
+      </tr></thead>
+      <tbody id="pktBody"></tbody>
+    </table>
+  </div>
+  <div class="pager">
+    <button id="pagePrev">◀ 上一頁</button>
+    <span class="info" id="pageInfo"></span>
+    <button id="pageNext">下一頁 ▶</button>
+    <span class="run-info">每頁 <select id="pageSize">
+      <option value="200">200</option>
+      <option value="500" selected>500</option>
+      <option value="1000">1000</option>
+      <option value="2000">2000</option>
+    </select></span>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ==================== State ====================
+const files = new Map();
+let allPackets = [];        // { ts (ms), tsStr, dir 'OUT'|'IN', size, msg, header, payload, src }
+let filtered = [];
+let specs = [];
+let currentSpec = null;     // { id, version, label, messages: {msgId: def} }
+let currentDir = 'all';
+let page = 0;
+let pageSize = 500;
+let nextFileId = 1;
+
+// ==================== Wiring ====================
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('logFile');
+const clearBtn = document.getElementById('clearBtn');
+const runBtn = document.getElementById('runBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressBar = document.getElementById('progressBar');
+const fileListEl = document.getElementById('fileList');
+const totalSummary = document.getElementById('totalSummary');
+const specSel = document.getElementById('specSel');
+const specInfo = document.getElementById('specInfo');
+const pktBody = document.getElementById('pktBody');
+const pageInfo = document.getElementById('pageInfo');
+const pagePrev = document.getElementById('pagePrev');
+const pageNext = document.getElementById('pageNext');
+const pageSizeEl = document.getElementById('pageSize');
+
+fileInput.addEventListener('change', e => { handleFiles(e.target.files); fileInput.value = ''; });
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+});
+clearBtn.addEventListener('click', clearAll);
+runBtn.addEventListener('click', applyFilter);
+specSel.addEventListener('change', onSpecChange);
+document.querySelectorAll('#dirToggle .p').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('#dirToggle .p').forEach(x => x.classList.remove('on'));
+    p.classList.add('on');
+    currentDir = p.dataset.d;
+  });
+});
+pagePrev.addEventListener('click', () => { if (page > 0) { page--; renderPage(); } });
+pageNext.addEventListener('click', () => {
+  if ((page + 1) * pageSize < filtered.length) { page++; renderPage(); }
+});
+pageSizeEl.addEventListener('change', () => { pageSize = parseInt(pageSizeEl.value, 10); page = 0; renderPage(); });
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ==================== Spec loader ====================
+async function loadSpecs() {
+  try {
+    const r = await fetch('/api/specs');
+    const j = await r.json();
+    specs = j.specs || [];
+    specSel.innerHTML = specs.map(s =>
+      `<option value="${s.id}">${escapeHtml(s.label)}${s.is_default ? ' (default)' : ''}</option>`
+    ).join('');
+    if (!specs.length) {
+      specInfo.textContent = '尚未有 spec — 請跑 spec_import.py 匯入';
+      return;
+    }
+    // Remember last-used
+    const lastId = parseInt(localStorage.getItem('vehicle.specId') || '0', 10);
+    const found = specs.find(s => s.id === lastId);
+    const def = specs.find(s => s.is_default);
+    specSel.value = String((found || def || specs[0]).id);
+    await onSpecChange();
+  } catch (e) {
+    specInfo.innerHTML = '<span class="warn">載入 spec 失敗: ' + escapeHtml(e.message) + '</span>';
+  }
+}
+
+async function onSpecChange() {
+  const id = parseInt(specSel.value, 10);
+  localStorage.setItem('vehicle.specId', String(id));
+  const r = await fetch('/api/specs/' + id + '/messages');
+  const j = await r.json();
+  currentSpec = { id, messages: j.messages || {} };
+  specInfo.textContent = `${Object.keys(currentSpec.messages).length} 個 msg 定義`;
+  // Re-render open detail row(s) if any
+  document.querySelectorAll('#pktBody tr.detail-row').forEach(tr => tr.remove());
+  document.querySelectorAll('#pktBody tr.pkt-row.open').forEach(tr => tr.classList.remove('open'));
+}
+loadSpecs();
+
+// ==================== File upload + streamed parse ====================
+async function handleFiles(fileList) {
+  const arr = Array.from(fileList || []);
+  if (!arr.length) return;
+  progressWrap.style.display = 'block';
+  clearBtn.disabled = false;
+  let totalBytes = 0, doneBytes = 0;
+  for (const f of arr) totalBytes += f.size;
+  for (const f of arr) {
+    const id = nextFileId++;
+    const entry = { id, name: f.name, size: f.size, lines: 0, packets: 0, status: 'parsing' };
+    files.set(id, entry);
+    renderFileList();
+    try {
+      await streamParse(f, entry, (bytesReadInFile) => {
+        const overall = (doneBytes + bytesReadInFile) / totalBytes * 100;
+        progressBar.style.width = overall.toFixed(1) + '%';
+      });
+      entry.status = 'ok';
+      doneBytes += f.size;
+    } catch (err) {
+      entry.status = 'error';
+      entry.errorMsg = err.message;
+    }
+    renderFileList();
+  }
+  allPackets.sort((a, b) => a.ts - b.ts);
+  progressBar.style.width = '100%';
+  setTimeout(() => { progressWrap.style.display = 'none'; progressBar.style.width = '0'; }, 400);
+  updateTotalSummary();
+  document.getElementById('optCard').style.display = 'block';
+  applyFilter();
+}
+
+async function streamParse(file, entry, onProgress) {
+  const YIELD_LINES = 20000;
+  const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
+  let leftover = '';
+  let bytesRead = 0;
+  let sinceYield = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytesRead += value.length;
+    let text = leftover + value;
+    let start = 0;
+    while (true) {
+      const nl = text.indexOf('\n', start);
+      if (nl < 0) break;
+      const line = nl > start && text.charCodeAt(nl - 1) === 13
+        ? text.substring(start, nl - 1) : text.substring(start, nl);
+      entry.lines++;
+      sinceYield++;
+      const p = parseLine(line, entry.name);
+      if (p) { allPackets.push(p); entry.packets++; }
+      start = nl + 1;
+      if (sinceYield >= YIELD_LINES) {
+        sinceYield = 0;
+        onProgress(bytesRead);
+        renderFileList();
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+    leftover = text.substring(start);
+  }
+  if (leftover) {
+    entry.lines++;
+    const p = parseLine(leftover, entry.name);
+    if (p) { allPackets.push(p); entry.packets++; }
+  }
+  onProgress(bytesRead);
+  renderFileList();
+}
+
+// Example line:
+//   2026-09-23 00:00:02,338 [DEBUG]: TSC <= 53, S820P00012874P00028831179..., 306
+const PKT_RE = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}),(\d+)\s+\[(\w+)\]:\s+TSC\s+(<=|=>)\s+(\d+),\s+([^,]+),\s+(\d+)\s*$/;
+// Spec msg IDs are always P## / S## (2 digits) — the following digits are data.
+const MSGID_RE = /^([PS]\d{2})/;
+
+function parseLine(line, srcName) {
+  const m = PKT_RE.exec(line);
+  if (!m) return null;
+  const [, date, time, ms, , arrow, size, rawPayload, sys] = m;
+  const ts = new Date(`${date}T${time}.${ms.padEnd(3, '0').slice(0, 3)}`).getTime();
+  if (isNaN(ts)) return null;
+  const payload = rawPayload.trim();
+  const hdrMatch = MSGID_RE.exec(payload);
+  return {
+    ts,
+    tsStr: `${date} ${time}.${ms.padEnd(3, '0').slice(0, 3)}`,
+    dir: arrow === '=>' ? 'OUT' : 'IN',
+    size: parseInt(size, 10),
+    msg: hdrMatch ? hdrMatch[1] : '',
+    header: hdrMatch ? hdrMatch[0] : '',
+    payload,
+    sys,
+    src: srcName,
+  };
+}
+
+function clearAll() {
+  files.clear();
+  allPackets = [];
+  filtered = [];
+  page = 0;
+  document.getElementById('optCard').style.display = 'none';
+  document.getElementById('tableCard').style.display = 'none';
+  clearBtn.disabled = true;
+  document.getElementById('runInfo').textContent = '';
+  renderFileList();
+  updateTotalSummary();
+}
+
+function updateTotalSummary() {
+  const nFiles = files.size;
+  const nLines = Array.from(files.values()).reduce((s, e) => s + e.lines, 0);
+  const nPkts = allPackets.length;
+  totalSummary.textContent = nFiles
+    ? `共 ${nFiles} 檔 · ${nPkts.toLocaleString()} packet · ${nLines.toLocaleString()} 行`
+    : '尚未上傳';
+}
+
+function renderFileList() {
+  const rows = Array.from(files.values()).map(e => {
+    const cls = 'file-row ' + (e.status === 'parsing' ? 'parsing' : e.status === 'error' ? 'error' : '');
+    const statusText = e.status === 'parsing' ? '解析中…' : e.status === 'error' ? ('錯誤: ' + (e.errorMsg || '')) : 'OK';
+    return `<div class="${cls}">
+      <span class="name" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</span>
+      <span class="stat">${e.packets.toLocaleString()} packet</span>
+      <span class="stat">${e.lines.toLocaleString()} 行</span>
+      <span class="status">${escapeHtml(statusText)}</span>
+    </div>`;
+  }).join('');
+  fileListEl.innerHTML = rows;
+}
+
+// ==================== Filter ====================
+function parseTsInput(s) {
+  s = (s || '').trim();
+  if (!s) return null;
+  const t = Date.parse(s.replace(' ', 'T'));
+  return isNaN(t) ? null : t;
+}
+function applyFilter() {
+  const dir = currentDir;
+  const msgRaw = document.getElementById('msgFilter').value.trim();
+  const msgSet = msgRaw ? new Set(msgRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)) : null;
+  const payloadQ = document.getElementById('payloadFilter').value.trim();
+  const tsFrom = parseTsInput(document.getElementById('tsFrom').value);
+  const tsTo   = parseTsInput(document.getElementById('tsTo').value);
+
+  filtered = allPackets.filter(p => {
+    if (dir !== 'all' && p.dir !== dir) return false;
+    if (msgSet && !msgSet.has(p.msg.toUpperCase())) return false;
+    if (payloadQ && p.payload.indexOf(payloadQ) < 0) return false;
+    if (tsFrom != null && p.ts < tsFrom) return false;
+    if (tsTo   != null && p.ts > tsTo)   return false;
+    return true;
+  });
+  page = 0;
+  renderPage();
+  document.getElementById('tableCard').style.display = 'block';
+  document.getElementById('runInfo').textContent =
+    `${filtered.length.toLocaleString()} / ${allPackets.length.toLocaleString()} packet 符合`;
+}
+
+// ==================== Table + pagination ====================
+function renderPage() {
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page >= totalPages) page = totalPages - 1;
+  if (page < 0) page = 0;
+  const from = page * pageSize;
+  const to = Math.min(total, from + pageSize);
+  const slice = filtered.slice(from, to);
+
+  const rows = slice.map((p, i) => {
+    const spec = currentSpec && currentSpec.messages[p.msg];
+    const desc = spec ? spec.description : '';
+    return `<tr class="pkt-row" data-idx="${from + i}">
+      <td class="num">${(from + i + 1).toLocaleString()}</td>
+      <td class="ts">${p.tsStr}</td>
+      <td class="dir"><span class="dir-tag ${p.dir}">${p.dir === 'OUT' ? '=&gt;' : '&lt;='}</span></td>
+      <td class="msg">${escapeHtml(p.msg)}</td>
+      <td class="desc">${escapeHtml(desc)}</td>
+      <td class="sz">${p.size}</td>
+      <td class="payload">${escapeHtml(p.payload)}</td>
+    </tr>`;
+  }).join('');
+  pktBody.innerHTML = rows || '<tr><td colspan="7" style="text-align:center; padding:20px" class="small">沒有 packet</td></tr>';
+  pageInfo.textContent = `第 ${page + 1} / ${totalPages} 頁 · 顯示 ${from + 1}-${to} / ${total.toLocaleString()}`;
+  pagePrev.disabled = (page === 0);
+  pageNext.disabled = (page >= totalPages - 1);
+}
+
+// ==================== Row expansion → decode ====================
+pktBody.addEventListener('click', ev => {
+  const tr = ev.target.closest('tr.pkt-row');
+  if (!tr) return;
+  toggleDecode(tr);
+});
+
+function toggleDecode(tr) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('detail-row')) {
+    next.remove();
+    tr.classList.remove('open');
+    return;
+  }
+  document.querySelectorAll('#pktBody tr.detail-row').forEach(r => r.remove());
+  document.querySelectorAll('#pktBody tr.pkt-row.open').forEach(r => r.classList.remove('open'));
+
+  const idx = parseInt(tr.dataset.idx, 10);
+  const p = filtered[idx];
+  if (!p) return;
+  const detail = document.createElement('tr');
+  detail.className = 'detail-row';
+  detail.innerHTML = `<td colspan="7">${renderDecode(p)}</td>`;
+  tr.after(detail);
+  tr.classList.add('open');
+  const copyBtn = detail.querySelector('.btn-copy');
+  if (copyBtn) copyBtn.addEventListener('click', () => navigator.clipboard.writeText(p.payload).catch(() => {}));
+}
+
+function renderDecode(p) {
+  const spec = currentSpec && currentSpec.messages[p.msg];
+  const hdrLen = p.header.length;   // usually 3 (P## / S##)
+  const data = p.payload.slice(hdrLen);  // data after header
+  const bytes = Array.from(p.payload);
+
+  const grid = bytes.map((ch, i) => {
+    const isHdr = i < hdrLen;
+    return `<span class="byte-cell ${isHdr ? 'hdr' : ''}"><span class="pos">${i + 1}</span>${escapeHtml(ch)}</span>`;
+  }).join('');
+
+  let fieldsHtml = '';
+  let warn = '';
+  if (!spec) {
+    warn = `<div class="decode-warn">此 msg (${escapeHtml(p.msg)}) 在目前 spec 未定義。</div>`;
+  } else if (!spec.fields || !spec.fields.length) {
+    warn = `<div class="decode-warn">此 msg 結構為 <b>${escapeHtml(spec.structure || 'Header only')}</b>,無資料欄位。</div>`;
+  } else {
+    let tagIdx = 0;
+    const tagValues = extractTagValues(data);
+    const rows = spec.fields.map(f => {
+      let range = '', raw = '', meaning = '';
+      if (f.tag_index) {
+        range = `&lt;${f.tag_index}&gt;`;
+        raw = tagValues[tagIdx++] || '';
+      } else if (f.start != null && f.end != null) {
+        const s0 = f.start - 1;
+        let e0 = typeof f.end === 'number' ? f.end : data.length;
+        e0 = Math.min(e0, data.length);
+        range = f.start === f.end ? String(f.start) : `${f.start}~${f.end}`;
+        raw = data.slice(s0, e0);
+      } else {
+        range = '?';
+      }
+      const rawStripped = String(raw).replace(/^\s+|\s+$/g, '');
+      if (f.values && f.values[rawStripped]) {
+        meaning = f.values[rawStripped];
+      }
+      return `<tr>
+        <td class="range">${range}</td>
+        <td class="value">${escapeHtml(raw)}</td>
+        <td class="name">${escapeHtml(f.label || '')}</td>
+        <td class="meaning">${escapeHtml(meaning)}</td>
+      </tr>`;
+    }).join('');
+    fieldsHtml = `<div class="decode-fields"><table>
+      <thead><tr><th>Byte</th><th class="value">值</th><th class="name">欄位</th><th class="meaning">意義</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }
+
+  const title = `<code>${escapeHtml(p.msg)}</code> ${spec ? escapeHtml(spec.description || '') : ''}`;
+  const meta = `${p.tsStr} · ${p.dir === 'OUT' ? 'TSC ⇒ Loc' : 'TSC ⇐ Loc'} · size=${p.size} · sys=${p.sys} · ${escapeHtml(p.src)}`;
+  return `<div class="decode-panel">
+    <div class="decode-head"><span class="decode-title">${title}</span><span class="decode-meta">${escapeHtml(meta)}</span></div>
+    <div class="byte-grid">${grid}</div>
+    ${fieldsHtml}
+    ${warn}
+    <div class="decode-actions"><button type="button" class="btn-mini btn-copy">複製 payload</button></div>
+  </div>`;
+}
+
+// Extract <...> tag-delimited values from data (used by msgs with First/Second <> fields)
+function extractTagValues(data) {
+  const out = [];
+  const re = /<([^>]*)>/g;
+  let m;
+  while ((m = re.exec(data)) !== null) out.push(m[1]);
+  return out;
+}
+</script>
+{% endblock %}

@@ -4,7 +4,8 @@
     <a href="/home"  {% if active == 'home' %}class="active"{% endif %}>總覽</a>
     <a href="/"      {% if active == 'index' %}class="active"{% endif %}>派令產生</a>
     <a href="/check" {% if active == 'check' %}class="active"{% endif %}>檢查重複設定</a>
-    <a href="/stats" {% if active == 'stats' %}class="active"{% endif %}>異常統計</a>
+    <a href="/stats"   {% if active == 'stats' %}class="active"{% endif %}>異常統計</a>
+    <a href="/vehicle" {% if active == 'vehicle' %}class="active"{% endif %}>車端 Log</a>
   </nav>
   <span class="health" id="hdrHealth"><i></i> /api/health</span>
 </header>

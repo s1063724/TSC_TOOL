@@ -8,33 +8,142 @@
 
 {% block extra_styles %}
 <style>
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 12px 0; }
-  .stat-box { padding: 12px 16px; background: var(--bg-input); border-radius: 6px; border-left: 3px solid var(--accent); }
-  .stat-box.serious { border-left-color: var(--serious); }
-  .stat-box.error { border-left-color: var(--error); }
-  .stat-box.warning { border-left-color: var(--warning); }
-  .stat-box.info { border-left-color: var(--info); }
-  .stat-box .label { font-size: 11pt; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
-  .stat-box .value { font-size: 22pt; font-weight: 700; color: var(--text-heading); font-variant-numeric: tabular-nums; }
-  .stat-box .sub { font-size: 11pt; color: var(--text-dim); margin-top: 2px; }
-  .stat-table { width: 100%; border-collapse: collapse; font-size: 13pt; margin-top: 8px; }
-  .stat-table th, .stat-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
-  .stat-table th { background: var(--bg-input); color: var(--text-heading); font-weight: 600; font-size: 12pt; position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; }
-  .stat-table th:hover { color: var(--accent); }
-  .stat-table th.sorted-asc::after { content: ' ▲'; font-size: 10pt; color: var(--accent); }
-  .stat-table th.sorted-desc::after { content: ' ▼'; font-size: 10pt; color: var(--accent); }
+  /* Upload area — drag-drop zone + file list */
+  .upload-zone {
+    border: 1px dashed var(--border-input); padding: 22px 20px; margin: 8px 0 4px;
+    text-align: center; transition: border-color .15s, background .15s;
+    color: var(--text-dim);
+  }
+  .upload-zone.drag { border-color: var(--accent); background: var(--bg-chip); color: var(--text); }
+  .upload-zone strong { color: var(--text); font-family: var(--font-heading); font-weight: 600; letter-spacing: 0.02em; }
+  .upload-zone .hint  { font-size: 10.5pt; margin-top: 6px; }
+  .upload-actions { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; }
+  .upload-actions .summary { font-family: var(--font-mono); font-size: 11pt; color: var(--text-dim); }
+  .file-list { border-top: 1px solid var(--border); margin-top: 10px; }
+  .file-row  { display: grid; grid-template-columns: 1fr auto auto auto; gap: 20px;
+               padding: 9px 0; border-bottom: 1px solid var(--border);
+               align-items: center; font: 11pt var(--font-mono); }
+  .file-row:last-child { border-bottom: 0; }
+  .file-row .name   { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-row .stat   { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .file-row .status { color: var(--accent-ink); font-size: 10pt; }
+  .file-row.parsing .status { color: var(--warning); }
+  .file-row.error   .status { color: var(--warn); }
+  .file-row .remove { color: var(--text-dim); cursor: pointer; padding: 0 6px; font: 12pt/1 var(--font-heading); background: transparent; border: 0; }
+  .file-row .remove:hover { color: var(--warn); }
+
+  /* Progress bar during parsing */
+  .progress { height: 3px; background: var(--border); margin: 8px 0 4px; overflow: hidden; }
+  .progress .bar { height: 100%; background: var(--accent); width: 0; transition: width .15s; }
+
+  /* Level filter — colored buttons (design mockup style) */
+  .lvl-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+  .lvl-btn { display: inline-block; padding: 6px 18px; font: 600 11pt var(--font-heading);
+             letter-spacing: 0.04em; cursor: pointer; user-select: none;
+             border: 1px solid transparent; background: transparent; color: var(--text-dim); }
+  .lvl-btn input { display: none; }
+  .lvl-btn.on.Serious { background: #f8e6e2; color: var(--serious); border-color: rgba(179,64,47,0.35); }
+  .lvl-btn.on.Error   { background: #f9eadf; color: var(--error);   border-color: rgba(179,90,30,0.35); }
+  .lvl-btn.on.Warning { background: #f6efd9; color: var(--warning); border-color: rgba(138,106,18,0.35); }
+  .lvl-btn.on.Info    { background: var(--bg-chip); color: var(--info); border-color: rgba(65,97,128,0.35); }
+  .lvl-btn:not(.on) { border-color: var(--border); }
+
+  /* Filter row */
+  .filter-row  { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin: 12px 0; }
+  .filter-row .field { display: flex; align-items: center; gap: 8px; }
+  .filter-row .field-label { font-size: 10.5pt; color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* Bucket pill toggle */
+  .pill-toggle { display: inline-flex; border: 1px solid var(--border); }
+  .pill-toggle .p { padding: 6px 14px; font: 500 11pt var(--font-heading); color: var(--text-dim); cursor: pointer; user-select: none; background: transparent; }
+  .pill-toggle .p + .p { border-left: 1px solid var(--border); }
+  .pill-toggle .p.on { background: var(--accent-deep); color: var(--bg); }
+  .pill-toggle .p:not(.on):hover { color: var(--text); background: rgba(29,31,32,0.05); }
+
+  /* Slider */
+  .slider-field input[type=range] { width: 160px; vertical-align: middle; }
+  .slider-field .val { font: 500 11pt var(--font-mono); color: var(--accent-ink); min-width: 20px; text-align: right; display: inline-block; }
+
+  /* Summary strip — 6 boxes in a row, no gap, with colored top strip */
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0; border: 1px solid var(--border); margin-top: 8px;
+  }
+  .summary-box {
+    position: relative; padding: 16px 20px;
+    background: transparent; border-right: 1px solid var(--border);
+    box-shadow: inset 0 3px 0 var(--text);
+  }
+  .summary-box:last-child { border-right: 0; }
+  .summary-box.serious { box-shadow: inset 0 3px 0 var(--serious); }
+  .summary-box.error   { box-shadow: inset 0 3px 0 var(--error);   }
+  .summary-box.warning { box-shadow: inset 0 3px 0 var(--warning); }
+  .summary-box.info    { box-shadow: inset 0 3px 0 var(--info);    }
+  .summary-box .lbl  { font: 500 9.5pt/1 var(--font-body); letter-spacing: 0.14em; color: var(--text-dim); text-transform: uppercase; }
+  .summary-box .val  { font: 600 26pt/1.15 var(--font-heading); color: var(--text); font-variant-numeric: tabular-nums; margin-top: 6px; }
+  .summary-box .sub  { font: 500 10pt var(--font-body); color: var(--text-dim); margin-top: 2px; letter-spacing: 0.02em; }
+  @media (max-width: 1100px) { .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 700px)  { .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* Chart wrap */
+  .chart-wrap { position: relative; height: 480px; margin-top: 8px; }
+  .chart-caption { font: 500 10.5pt var(--font-mono); color: var(--text-dim); margin-top: 6px; }
+
+  /* Statistics table (uses base overrides — just page-level tweaks) */
+  .stat-table  { width: 100%; border-collapse: collapse; font: 12pt var(--font-body); margin-top: 8px; }
+  .stat-table th, .stat-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .stat-table th { position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; }
+  .stat-table th.num-th { text-align: right; }
+  .stat-table th.sorted-asc::after  { content: ' ▲'; font-size: 9pt; }
+  .stat-table th.sorted-desc::after { content: ' ▼'; font-size: 9pt; }
   .stat-table tr:last-child td { border-bottom: 0; }
-  .stat-table tr:hover { background: var(--bg-input); }
-  .stat-table td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: Menlo, Consolas, monospace; }
-  .stat-table td.mono { font-family: Menlo, Consolas, monospace; font-size: 12pt; }
-  .stat-table-wrap { max-height: 600px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; margin-top: 8px; }
-  .level-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11pt; font-weight: 600; }
-  .level-Serious { background: rgba(255,107,107,0.15); color: var(--serious); }
-  .level-Error   { background: rgba(255,166,87,0.15); color: var(--error); }
-  .level-Warning { background: rgba(245,215,110,0.15); color: var(--warning); }
-  .level-Info    { background: rgba(138,180,255,0.15); color: var(--info); }
-  .chart-wrap { position: relative; height: 460px; margin-top: 8px; }
-  .filter-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 8px 0; }
+  .stat-table td.num  { text-align: right; font: 500 12pt var(--font-mono); }
+  .stat-table td.num b { font: 600 13pt var(--font-heading); }
+  .stat-table td.mono { font: 11pt var(--font-mono); color: var(--text); }
+  .stat-table-wrap { max-height: 640px; overflow: auto; border: 1px solid var(--border); margin-top: 8px; }
+
+  /* Level tag inside table rows */
+  .lvl-tag { display: inline-block; padding: 1px 8px; font: 600 10pt var(--font-heading); letter-spacing: 0.04em; }
+  .lvl-tag.Serious { background: #f8e6e2; color: var(--serious); }
+  .lvl-tag.Error   { background: #f9eadf; color: var(--error); }
+  .lvl-tag.Warning { background: #f6efd9; color: var(--warning); }
+  .lvl-tag.Info    { background: var(--bg-chip); color: var(--info); }
+
+  /* Devices cell — chips */
+  .dev-chips  { display: inline; }
+  .dev-chip   { display: inline-block; padding: 1px 7px; margin: 1px 3px 1px 0; background: var(--code-bg); color: var(--code-text); font-family: var(--font-mono); font-size: 10pt; }
+  .dev-more   { font-size: 10pt; color: var(--text-dim); }
+
+  /* Clickable data rows + expanded occurrence panel */
+  .stat-table tbody tr.data-row { cursor: pointer; }
+  .stat-table tbody tr.data-row:hover td { background: var(--bg-chip); }
+  .stat-table tbody tr.data-row.open td { background: var(--bg-chip); }
+  .stat-table tbody tr.data-row td:first-child::before {
+    content: '▸'; display: inline-block; width: 12px; margin-right: 4px;
+    color: var(--text-dim); font-size: 9pt; transition: transform .15s;
+  }
+  .stat-table tbody tr.data-row.open td:first-child::before { transform: rotate(90deg); }
+  .stat-table tbody tr.detail-row td { padding: 0; background: var(--bg-chip); border-bottom: 1px solid var(--border); }
+  .occ-panel { padding: 12px 16px 14px; }
+  .occ-panel .occ-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .occ-panel .occ-title { font: 600 11pt var(--font-heading); letter-spacing: 0.03em; color: var(--text); }
+  .occ-panel .occ-meta  { font: 10.5pt var(--font-mono); color: var(--text-dim); }
+  .occ-list { max-height: 320px; overflow: auto; border: 1px solid var(--border); background: var(--bg); }
+  .occ-list table { width: 100%; border-collapse: collapse; font: 11pt var(--font-mono); }
+  .occ-list th, .occ-list td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  .occ-list th { position: sticky; top: 0; background: var(--bg-chip); font: 600 10pt var(--font-heading); letter-spacing: 0.03em; color: var(--text-dim); }
+  .occ-list tr:last-child td { border-bottom: 0; }
+  .occ-list td.idx  { color: var(--text-dim); text-align: right; width: 40px; }
+  .occ-list td.ts   { color: var(--text); white-space: nowrap; width: 180px; }
+  .occ-list td.dev  { color: var(--code-text); width: 120px; }
+  .occ-list td.det  { color: var(--text-dim); font-size: 10pt; }
+  .occ-actions { margin-top: 8px; display: flex; gap: 10px; align-items: center; }
+  .occ-actions .btn-mini { font: 500 10pt var(--font-heading); padding: 4px 10px; background: transparent;
+                           color: var(--text); border: 1px solid var(--border); cursor: pointer; letter-spacing: 0.03em; }
+  .occ-actions .btn-mini:hover { background: var(--bg-chip); border-color: var(--accent); }
+
+  /* Info line below run button */
+  .run-info { display: inline-block; margin-left: 12px; font-size: 10.5pt; color: var(--text-dim); }
 </style>
 {% endblock %}
 
@@ -45,51 +154,79 @@
     <h1>異常統計</h1>
     <span class="page-slug">/stats</span>
   </div>
-  <p class="hero-desc">上傳 TSC UI log (含 <code>[ALARM]</code> 事件),解析後產出摘要、統計表、時間軸折線圖。全部處理在瀏覽器內。</p>
+  <p class="hero-desc">上傳 TSC UI log (含 <code>[ALARM]</code> 事件),支援多檔累積分析。解析後產出摘要、統計表、時間軸折線圖。全部處理在瀏覽器內。</p>
 </div>
 
 <div class="card">
   <h2>Step 1. 上傳 log</h2>
-  <input type="file" id="logFile" accept=".log,.txt,text/plain" multiple>
-  <div id="logInfo" class="small"></div>
+  <div id="dropZone" class="upload-zone">
+    <strong>拖曳 log 檔到這裡</strong>,或
+    <input type="file" id="logFile" multiple style="display:inline-block">
+    <div class="hint">支援 <code>output3000.log</code>、<code>output3000.log.2026-09-05</code> 等任意副檔名。多檔一次選,已上傳的檔會保留,可再拖新檔累加。</div>
+  </div>
+  <div class="upload-actions">
+    <span class="summary" id="totalSummary">尚未上傳</span>
+    <div>
+      <button type="button" class="btn-secondary" id="clearBtn" disabled>清空</button>
+    </div>
+  </div>
+  <div class="progress" id="progressWrap" style="display:none"><div class="bar" id="progressBar"></div></div>
+  <div class="file-list" id="fileList"></div>
 </div>
 
 <div class="card" id="optCard" style="display:none">
   <h2>Step 2. 過濾與分組</h2>
+
   <div class="filter-row">
-    <label><input type="checkbox" class="lvl-chk" value="Serious" checked> <span class="level-badge level-Serious">Serious</span></label>
-    <label><input type="checkbox" class="lvl-chk" value="Error"   checked> <span class="level-badge level-Error">Error</span></label>
-    <label><input type="checkbox" class="lvl-chk" value="Warning" checked> <span class="level-badge level-Warning">Warning</span></label>
-    <label><input type="checkbox" class="lvl-chk" value="Info"> <span class="level-badge level-Info">Info</span></label>
+    <div class="field">
+      <span class="field-label">Level</span>
+      <div class="lvl-filter" id="lvlFilter">
+        <label class="lvl-btn on Serious" data-lvl="Serious"><input type="checkbox" checked>Serious</label>
+        <label class="lvl-btn on Error"   data-lvl="Error"><input type="checkbox" checked>Error</label>
+        <label class="lvl-btn on Warning" data-lvl="Warning"><input type="checkbox" checked>Warning</label>
+        <label class="lvl-btn Info"       data-lvl="Info"><input type="checkbox">Info</label>
+      </div>
+    </div>
   </div>
+
   <div class="filter-row">
-    <label>時間桶:
-      <select id="bucketSel">
-        <option value="auto">Auto</option>
-        <option value="5min">5 分鐘</option>
-        <option value="15min">15 分鐘</option>
-        <option value="hour">1 小時</option>
-        <option value="day">1 天</option>
-      </select>
-    </label>
-    <label>折線圖只畫 Top N codes: <input type="number" id="topN" value="8" min="1" max="30" style="width:70px"></label>
-    <label>Device 篩選 (可空): <input type="text" id="deviceFilter" placeholder="CR101,MG503" style="width:180px"></label>
+    <div class="field">
+      <span class="field-label">時間桶</span>
+      <div class="pill-toggle" id="bucketToggle">
+        <span class="p on" data-b="auto">Auto</span>
+        <span class="p" data-b="5min">5 分</span>
+        <span class="p" data-b="15min">15 分</span>
+        <span class="p" data-b="hour">1 小時</span>
+        <span class="p" data-b="day">1 天</span>
+      </div>
+    </div>
+    <div class="field slider-field">
+      <span class="field-label">折線圖 Top N codes</span>
+      <input type="range" id="topN" value="8" min="1" max="20" step="1">
+      <span class="val" id="topNVal">8</span>
+    </div>
+    <div class="field">
+      <span class="field-label">Device 篩選 (可空)</span>
+      <input type="text" id="deviceFilter" placeholder="CR101,MG503" style="width:220px">
+    </div>
   </div>
+
   <div class="row">
-    <button id="runBtn">分析</button>
-    <button id="exportBtn" class="btn-secondary" disabled>匯出統計 CSV</button>
-    <span id="runInfo" class="small" style="margin-left:10px"></span>
+    <button id="runBtn" type="button">分析</button>
+    <button id="exportBtn" class="btn-secondary" type="button" disabled>匯出統計 CSV</button>
+    <span id="runInfo" class="run-info"></span>
   </div>
 </div>
 
 <div class="card" id="summaryCard" style="display:none">
   <h2>摘要</h2>
-  <div class="stats-grid" id="summaryGrid"></div>
+  <div class="summary-grid" id="summaryGrid"></div>
 </div>
 
 <div class="card" id="chartCard" style="display:none">
-  <h2>折線圖 — 異常數量 vs 時間 (依 alarm code 分組)</h2>
+  <h2>折線圖 — 異常數量 vs 時間</h2>
   <div class="chart-wrap"><canvas id="alarmChart"></canvas></div>
+  <div class="chart-caption" id="chartCaption"></div>
 </div>
 
 <div class="card" id="tableCard" style="display:none">
@@ -115,15 +252,61 @@
 
 {% block scripts %}
 <script>
-let allAlarms = [];   // parsed from files
-let lastGroups = [];  // aggregated result for CSV
+// ==================== State ====================
+const files = new Map();      // fileId -> { name, size, lines, alarms, status }
+let allAlarms = [];            // all alarms across files
+let lastGroups = [];           // aggregated result
 let chart = null;
 let sortState = { key: 'count', dir: 'desc' };
+let currentBucket = 'auto';
+let nextFileId = 1;
 
-// ==================== File load ====================
-document.getElementById('logFile').addEventListener('change', handleFiles);
-document.getElementById('runBtn').addEventListener('click', runAnalysis);
-document.getElementById('exportBtn').addEventListener('click', exportCSV);
+// ==================== Wiring ====================
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('logFile');
+const clearBtn = document.getElementById('clearBtn');
+const runBtn = document.getElementById('runBtn');
+const exportBtn = document.getElementById('exportBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressBar = document.getElementById('progressBar');
+const topNInput = document.getElementById('topN');
+const topNVal = document.getElementById('topNVal');
+const fileListEl = document.getElementById('fileList');
+const totalSummary = document.getElementById('totalSummary');
+
+fileInput.addEventListener('change', e => { handleFiles(e.target.files); fileInput.value = ''; });
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', e => { dropZone.classList.remove('drag'); });
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+});
+clearBtn.addEventListener('click', clearAll);
+runBtn.addEventListener('click', runAnalysis);
+exportBtn.addEventListener('click', exportCSV);
+topNInput.addEventListener('input', () => topNVal.textContent = topNInput.value);
+
+// Level buttons
+document.querySelectorAll('.lvl-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    const cb = btn.querySelector('input');
+    cb.checked = !cb.checked;
+    btn.classList.toggle('on', cb.checked);
+  });
+});
+
+// Bucket toggle
+document.querySelectorAll('#bucketToggle .p').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('#bucketToggle .p').forEach(x => x.classList.remove('on'));
+    p.classList.add('on');
+    currentBucket = p.dataset.b;
+  });
+});
+
+// Table sort
 document.querySelectorAll('#statTable thead th[data-sort]').forEach(th => {
   th.addEventListener('click', () => {
     const key = th.dataset.sort;
@@ -136,90 +319,214 @@ function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-async function handleFiles(e) {
-  const files = Array.from(e.target.files || []);
-  if (!files.length) return;
-  const infoEl = document.getElementById('logInfo');
-  infoEl.textContent = `讀取 ${files.length} 個檔...`;
-  allAlarms = [];
-  const perFile = [];
-  let totalLines = 0;
-  for (const f of files) {
-    const text = await f.text();
-    const before = allAlarms.length;
-    const linesInFile = text.split(/\r?\n/).length;
-    totalLines += linesInFile;
-    parseAlarmLines(text, f.name);
-    perFile.push(`<code>${escapeHtml(f.name)}</code>: ${(allAlarms.length - before)} alarms / ${linesInFile} lines`);
+// ==================== File load (streamed, additive, low-memory) ====================
+// Streams each file via File.stream() + TextDecoderStream so we never hold the
+// full file text in memory. Peak memory per file ~ CHUNK size (~64KB), not
+// file.size. This lets us process many days of large TSC logs.
+async function handleFiles(fileList) {
+  const arr = Array.from(fileList || []);
+  if (!arr.length) return;
+
+  progressWrap.style.display = 'block';
+  clearBtn.disabled = false;
+
+  let totalBytes = 0, doneBytes = 0;
+  for (const f of arr) totalBytes += f.size;
+
+  for (const f of arr) {
+    const id = nextFileId++;
+    const entry = { id, name: f.name, size: f.size, lines: 0, alarms: 0, status: 'parsing' };
+    files.set(id, entry);
+    renderFileList();
+
+    try {
+      await streamParse(f, entry, (bytesReadInFile) => {
+        const overall = (doneBytes + bytesReadInFile) / totalBytes * 100;
+        progressBar.style.width = overall.toFixed(1) + '%';
+      });
+      entry.status = 'ok';
+      doneBytes += f.size;
+    } catch (err) {
+      entry.status = 'error';
+      entry.errorMsg = err.message;
+      console.error('parse failed', f.name, err);
+    }
+    renderFileList();
   }
+
+  // Keep alarm timeline sorted for chart / analysis
   allAlarms.sort((a, b) => a.ts - b.ts);
-  infoEl.innerHTML = `<b>共 ${allAlarms.length}</b> alarm 從 ${totalLines} 行掃出<br>` + perFile.join('<br>');
+  progressBar.style.width = '100%';
+  setTimeout(() => { progressWrap.style.display = 'none'; progressBar.style.width = '0'; }, 400);
+  updateTotalSummary();
   document.getElementById('optCard').style.display = 'block';
+}
+
+// Stream a single file line-by-line via ReadableStream + TextDecoderStream.
+// Yields control to the browser every YIELD_LINES so the UI stays responsive
+// even on multi-hundred-MB logs.
+async function streamParse(file, entry, onProgress) {
+  const YIELD_LINES = 20000;
+  const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
+  let leftover = '';
+  let bytesRead = 0;
+  let sinceYield = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytesRead += value.length;
+    let text = leftover + value;
+    let start = 0;
+    while (true) {
+      const nl = text.indexOf('\n', start);
+      if (nl < 0) break;
+      const line = nl > start && text.charCodeAt(nl - 1) === 13
+        ? text.substring(start, nl - 1) : text.substring(start, nl);
+      entry.lines++;
+      sinceYield++;
+      const parsed = parseLine(line, entry.name);
+      if (parsed) { allAlarms.push(parsed); entry.alarms++; }
+      start = nl + 1;
+      if (sinceYield >= YIELD_LINES) {
+        sinceYield = 0;
+        onProgress(bytesRead);
+        renderFileList();
+        // 0-ms setTimeout lets the browser paint / handle input between chunks
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+    leftover = text.substring(start);
+  }
+  // Handle last line without trailing newline
+  if (leftover) {
+    entry.lines++;
+    const parsed = parseLine(leftover, entry.name);
+    if (parsed) { allAlarms.push(parsed); entry.alarms++; }
+  }
+  onProgress(bytesRead);
+  renderFileList();
+}
+
+function clearAll() {
+  files.clear();
+  allAlarms = [];
+  lastGroups = [];
+  if (chart) { chart.destroy(); chart = null; }
+  document.getElementById('optCard').style.display = 'none';
+  document.getElementById('summaryCard').style.display = 'none';
+  document.getElementById('chartCard').style.display = 'none';
+  document.getElementById('tableCard').style.display = 'none';
+  clearBtn.disabled = true;
+  exportBtn.disabled = true;
+  document.getElementById('runInfo').textContent = '';
+  renderFileList();
+  updateTotalSummary();
+}
+
+function removeFile(id) {
+  const entry = files.get(id);
+  if (!entry) return;
+  files.delete(id);
+  allAlarms = allAlarms.filter(a => a.src !== entry.name);
+  renderFileList();
+  updateTotalSummary();
+  if (!files.size) {
+    document.getElementById('optCard').style.display = 'none';
+    document.getElementById('summaryCard').style.display = 'none';
+    document.getElementById('chartCard').style.display = 'none';
+    document.getElementById('tableCard').style.display = 'none';
+    clearBtn.disabled = true;
+  }
+}
+
+function updateTotalSummary() {
+  const nFiles = files.size;
+  const nLines = Array.from(files.values()).reduce((s, e) => s + e.lines, 0);
+  const nAlarms = allAlarms.length;
+  totalSummary.textContent = nFiles
+    ? `共 ${nFiles} 檔 · ${nAlarms.toLocaleString()} alarm · ${nLines.toLocaleString()} 行`
+    : '尚未上傳';
+}
+
+function renderFileList() {
+  const rows = Array.from(files.values()).map(e => {
+    const cls = 'file-row ' + (e.status === 'parsing' ? 'parsing' : e.status === 'error' ? 'error' : '');
+    const statusText = e.status === 'parsing' ? '解析中…' : e.status === 'error' ? ('錯誤: ' + (e.errorMsg || '')) : 'OK';
+    return `<div class="${cls}">
+      <span class="name" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</span>
+      <span class="stat">${e.alarms.toLocaleString()} alarm</span>
+      <span class="stat">${e.lines.toLocaleString()} 行</span>
+      <span class="status">${escapeHtml(statusText)}</span>
+    </div>`;
+  }).join('');
+  fileListEl.innerHTML = rows;
 }
 
 // ==================== Log parser ====================
 const ALARM_RE = /^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(\d+)\] \[(\w+)\] \[ALARM\] /;
 
-function parseAlarmLines(text, srcName) {
-  const lines = text.split(/\r?\n/);
-  for (const line of lines) {
-    const m = ALARM_RE.exec(line);
-    if (!m) continue;
-    const [datePart, timePart] = m[1].split(' ');
-    const ts = new Date(`${datePart}T${timePart}.${m[2].padEnd(3, '0').slice(0, 3)}`);
-    if (isNaN(ts.getTime())) continue;
-    const bracketLevel = m[3];
-    const body = line.slice(m[0].length);
-    const level = extractField(body, 'Level') || bracketLevel;
-    const code = parseInt(extractField(body, 'Code') || '0', 10);
-    const subCode = extractField(body, 'SubCode');
-    const detail = extractField(body, 'Detail');
-    const cause = extractField(body, 'Cause');
-    const unitID = extractField(body, 'UnitID');
-    const unitType = extractField(body, 'UnitType');
-    const commandID = extractField(body, 'CommandID');
-    allAlarms.push({ ts, level, code, subCode, detail, cause, unitID, unitType, commandID, src: srcName });
-  }
+function parseLine(line, srcName) {
+  const m = ALARM_RE.exec(line);
+  if (!m) return null;
+  const [datePart, timePart] = m[1].split(' ');
+  const ts = new Date(`${datePart}T${timePart}.${m[2].padEnd(3, '0').slice(0, 3)}`);
+  if (isNaN(ts.getTime())) return null;
+  const body = line.slice(m[0].length);
+  return {
+    ts,
+    level: extractField(body, 'Level') || m[3],
+    code: parseInt(extractField(body, 'Code') || '0', 10),
+    subCode: extractField(body, 'SubCode'),
+    detail: extractField(body, 'Detail'),
+    cause: extractField(body, 'Cause'),
+    unitID: extractField(body, 'UnitID'),
+    unitType: extractField(body, 'UnitType'),
+    commandID: extractField(body, 'CommandID'),
+    src: srcName,
+  };
 }
 
+// Pre-compile field-extraction regexes once. Rebuilding regex per line during
+// multi-day parsing showed up as ~15% CPU cost in earlier profiling.
+const FIELD_RE = {};
+for (const k of ['Level', 'Code', 'SubCode', 'Detail', 'Cause', 'UnitID', 'UnitType', 'CommandID']) {
+  FIELD_RE[k] = {
+    quoted: new RegExp("'" + k + "':\\s*'((?:[^'\\\\]|\\\\.)*)'"),
+    bare:   new RegExp("'" + k + "':\\s*([-\\w]+)"),
+  };
+}
 function extractField(body, key) {
-  // Try single-quoted string first
-  let re = new RegExp("'" + key + "':\\s*'((?:[^'\\\\]|\\\\.)*)'");
-  let m = re.exec(body);
+  const re = FIELD_RE[key];
+  if (!re) return '';
+  let m = re.quoted.exec(body);
   if (m) return m[1];
-  // Fallback: bare number/word
-  re = new RegExp("'" + key + "':\\s*([-\\w]+)");
-  m = re.exec(body);
+  m = re.bare.exec(body);
   return m ? m[1] : '';
 }
 
 // ==================== Analysis ====================
 function chosenLevels() {
-  return Array.from(document.querySelectorAll('.lvl-chk:checked')).map(c => c.value);
+  return Array.from(document.querySelectorAll('.lvl-btn input:checked')).map(cb => cb.parentElement.dataset.lvl);
 }
 
 function pickBucket(minTs, maxTs) {
-  const sel = document.getElementById('bucketSel').value;
-  if (sel !== 'auto') return sel;
-  const spanMs = maxTs - minTs;
-  const h = spanMs / 3.6e6;
-  if (h < 2)   return '5min';
-  if (h < 12)  return '15min';
-  if (h < 72)  return 'hour';
+  if (currentBucket !== 'auto') return currentBucket;
+  const h = (maxTs - minTs) / 3.6e6;
+  if (h < 2)  return '5min';
+  if (h < 12) return '15min';
+  if (h < 72) return 'hour';
   return 'day';
 }
 
-function bucketMs(bucket) {
-  return { '5min': 5*60*1000, '15min': 15*60*1000, 'hour': 3600*1000, 'day': 86400*1000 }[bucket] || 3600*1000;
-}
+const BUCKET_MS = { '5min': 300000, '15min': 900000, 'hour': 3600000, 'day': 86400000 };
 
 function floorToBucket(ts, bucket) {
   const d = new Date(ts);
-  if (bucket === 'day') { d.setHours(0, 0, 0, 0); return d.getTime(); }
-  if (bucket === 'hour') { d.setMinutes(0, 0, 0); return d.getTime(); }
-  const minutes = d.getMinutes();
+  if (bucket === 'day')  { d.setHours(0, 0, 0, 0); return d.getTime(); }
+  if (bucket === 'hour') { d.setMinutes(0, 0, 0);  return d.getTime(); }
   const stepMin = bucket === '5min' ? 5 : 15;
-  d.setMinutes(Math.floor(minutes / stepMin) * stepMin, 0, 0);
+  d.setMinutes(Math.floor(d.getMinutes() / stepMin) * stepMin, 0, 0);
   return d.getTime();
 }
 
@@ -241,11 +548,10 @@ function runAnalysis() {
   const levels = chosenLevels();
   const devFilterRaw = document.getElementById('deviceFilter').value.trim();
   const devFilter = devFilterRaw ? new Set(devFilterRaw.split(',').map(s => s.trim()).filter(Boolean)) : null;
-  const topN = Math.max(1, parseInt(document.getElementById('topN').value, 10) || 8);
+  const topN = Math.max(1, parseInt(topNInput.value, 10) || 8);
 
   const filtered = allAlarms.filter(a =>
-    levels.includes(a.level) &&
-    (!devFilter || devFilter.has(a.unitID))
+    levels.includes(a.level) && (!devFilter || devFilter.has(a.unitID))
   );
 
   if (!filtered.length) {
@@ -259,27 +565,22 @@ function runAnalysis() {
     const key = `${a.code}|${a.subCode}`;
     let g = groupMap.get(key);
     if (!g) {
-      g = {
-        key, code: a.code, subCode: a.subCode, level: a.level,
-        cause: a.cause, detail: a.detail,
-        count: 0, first: a.ts, last: a.ts,
-        devices: new Map(), // unitID -> count
-      };
+      g = { key, code: a.code, subCode: a.subCode, level: a.level, cause: a.cause, detail: a.detail,
+            count: 0, first: a.ts, last: a.ts, devices: new Map(), events: [] };
       groupMap.set(key, g);
     }
     g.count++;
+    g.events.push(a);
     if (a.ts < g.first) g.first = a.ts;
     if (a.ts > g.last)  { g.last = a.ts; g.detail = a.detail; g.cause = a.cause; g.level = a.level; }
     if (a.unitID) g.devices.set(a.unitID, (g.devices.get(a.unitID) || 0) + 1);
   }
-  const groups = Array.from(groupMap.values());
-  lastGroups = groups;
-
+  lastGroups = Array.from(groupMap.values());
   renderSummary(filtered);
-  renderTable(groups);
-  renderChart(filtered, groups, topN);
-  document.getElementById('exportBtn').disabled = false;
-  document.getElementById('runInfo').innerHTML = `分析完成 (${new Date().toLocaleTimeString()})`;
+  renderTable(lastGroups);
+  renderChart(filtered, lastGroups, topN);
+  exportBtn.disabled = false;
+  document.getElementById('runInfo').textContent = `分析完成 (${new Date().toLocaleTimeString()})`;
 }
 
 function renderSummary(filtered) {
@@ -295,17 +596,20 @@ function renderSummary(filtered) {
     if (t < minTs) minTs = t;
     if (t > maxTs) maxTs = t;
   }
-  const spanHours = ((maxTs - minTs) / 3.6e6);
+  const total = filtered.length;
+  const spanH = (maxTs - minTs) / 3.6e6;
+  const rangeVal = spanH < 1 ? `${Math.round(spanH * 60)} min` : `${spanH.toFixed(1)} h`;
+  const pct = n => total ? `${Math.round(n / total * 100)}%` : '—';
   const boxes = [
-    { cls: '', label: 'Total Alarms', value: filtered.length, sub: `${codes.size} 種 code · ${devices.size} 個 device` },
-    { cls: 'serious', label: 'Serious', value: byLevel.Serious, sub: '' },
-    { cls: 'error', label: 'Error', value: byLevel.Error, sub: '' },
-    { cls: 'warning', label: 'Warning', value: byLevel.Warning, sub: '' },
-    { cls: 'info', label: 'Info', value: byLevel.Info || 0, sub: '' },
-    { cls: '', label: 'Time Range', value: spanHours < 1 ? `${Math.round(spanHours * 60)} min` : `${spanHours.toFixed(1)} h`, sub: `${fmtTs(minTs)} → ${fmtTs(maxTs)}` },
+    { cls: '',        lbl: 'Total Alarms', val: total.toLocaleString(), sub: `${codes.size} 種 code · ${devices.size} 個 device` },
+    { cls: 'serious', lbl: 'Serious', val: byLevel.Serious.toLocaleString(), sub: pct(byLevel.Serious) },
+    { cls: 'error',   lbl: 'Error',   val: byLevel.Error.toLocaleString(),   sub: pct(byLevel.Error) },
+    { cls: 'warning', lbl: 'Warning', val: byLevel.Warning.toLocaleString(), sub: pct(byLevel.Warning) },
+    { cls: 'info',    lbl: 'Info',    val: (byLevel.Info || 0).toLocaleString(), sub: pct(byLevel.Info || 0) },
+    { cls: '',        lbl: 'Time Range', val: rangeVal, sub: `${fmtTs(minTs)} → ${fmtTs(maxTs)}` },
   ];
   document.getElementById('summaryGrid').innerHTML = boxes.map(b =>
-    `<div class="stat-box ${b.cls}"><div class="label">${escapeHtml(b.label)}</div><div class="value">${b.value}</div><div class="sub">${escapeHtml(b.sub)}</div></div>`
+    `<div class="summary-box ${b.cls}"><div class="lbl">${escapeHtml(b.lbl)}</div><div class="val">${b.val}</div><div class="sub">${escapeHtml(b.sub)}</div></div>`
   ).join('');
   document.getElementById('summaryCard').style.display = 'block';
 }
@@ -321,48 +625,123 @@ function renderTable(groups) {
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
     return av.localeCompare(bv, undefined, { numeric: true }) * dir;
   });
-
-  // Update header arrows
   document.querySelectorAll('#statTable thead th').forEach(th => {
     th.classList.remove('sorted-asc', 'sorted-desc');
     if (th.dataset.sort === key) th.classList.add(sortState.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
   });
-
   const rows = sorted.map(g => {
     const devs = Array.from(g.devices.entries()).sort((a, b) => b[1] - a[1]);
-    const top = devs.slice(0, 3).map(([d, n]) => `${d}(${n})`).join(', ');
-    const extra = devs.length > 3 ? ` <span class="small">+${devs.length - 3}</span>` : '';
-    return `<tr>
+    const chips = devs.slice(0, 3).map(([d, n]) => `<span class="dev-chip">${escapeHtml(d)}(${n})</span>`).join('');
+    const more = devs.length > 3 ? `<span class="dev-more">+${devs.length - 3}</span>` : '';
+    return `<tr class="data-row" data-key="${escapeHtml(g.key)}" title="點擊查看發生時間">
       <td class="mono">${g.code}</td>
       <td class="mono">${escapeHtml(g.subCode)}</td>
-      <td><span class="level-badge level-${g.level}">${g.level}</span></td>
+      <td><span class="lvl-tag ${g.level}">${g.level}</span></td>
       <td>${escapeHtml(g.cause)}</td>
       <td>${escapeHtml(g.detail)}</td>
       <td class="num"><b>${g.count}</b></td>
       <td class="mono">${fmtTs(g.first)}</td>
       <td class="mono">${fmtTs(g.last)}</td>
-      <td>${escapeHtml(top)}${extra}</td>
+      <td>${chips}${more}</td>
     </tr>`;
   }).join('');
   document.getElementById('statBody').innerHTML = rows || '<tr><td colspan="9" style="text-align:center; padding:20px" class="small">沒有資料</td></tr>';
   document.getElementById('tableCard').style.display = 'block';
 }
 
+// ==================== Row click → show occurrence times ====================
+document.getElementById('statBody').addEventListener('click', ev => {
+  const tr = ev.target.closest('tr.data-row');
+  if (!tr) return;
+  toggleOccurrenceRow(tr);
+});
+
+function toggleOccurrenceRow(tr) {
+  const key = tr.dataset.key;
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('detail-row') && next.dataset.key === key) {
+    next.remove();
+    tr.classList.remove('open');
+    return;
+  }
+  // Close any other open detail row (single-expand behaviour)
+  document.querySelectorAll('#statBody tr.detail-row').forEach(r => r.remove());
+  document.querySelectorAll('#statBody tr.data-row.open').forEach(r => r.classList.remove('open'));
+
+  const group = lastGroups.find(g => g.key === key);
+  if (!group) return;
+  const detail = document.createElement('tr');
+  detail.className = 'detail-row';
+  detail.dataset.key = key;
+  detail.innerHTML = `<td colspan="9">${renderOccurrencePanel(group)}</td>`;
+  tr.after(detail);
+  tr.classList.add('open');
+
+  detail.querySelector('.btn-copy').addEventListener('click', () => copyOccurrences(group));
+  detail.querySelector('.btn-csv').addEventListener('click', () => exportOccurrenceCSV(group));
+}
+
+function renderOccurrencePanel(g) {
+  const events = [...g.events].sort((a, b) => a.ts - b.ts);
+  const title = `${g.code}${g.subCode ? '/' + g.subCode : ''} · ${escapeHtml(g.cause || '')}`;
+  const rows = events.map((a, i) => `<tr>
+      <td class="idx">${i + 1}</td>
+      <td class="ts">${fmtTs(a.ts)}</td>
+      <td class="dev">${escapeHtml(a.unitID || '')}</td>
+      <td class="det">${escapeHtml(a.detail || '')}</td>
+    </tr>`).join('');
+  return `<div class="occ-panel">
+    <div class="occ-head">
+      <span class="occ-title">${title}</span>
+      <span class="occ-meta">共 ${events.length} 次 · ${fmtTs(g.first)} → ${fmtTs(g.last)}</span>
+    </div>
+    <div class="occ-list">
+      <table>
+        <thead><tr><th class="idx">#</th><th>時間</th><th>Device</th><th>Detail</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="occ-actions">
+      <button type="button" class="btn-mini btn-copy">複製時間清單</button>
+      <button type="button" class="btn-mini btn-csv">匯出此異常 CSV</button>
+    </div>
+  </div>`;
+}
+
+function copyOccurrences(g) {
+  const text = [...g.events].sort((a, b) => a.ts - b.ts)
+    .map(a => `${fmtTs(a.ts)}\t${a.unitID || ''}\t${a.detail || ''}`).join('\n');
+  navigator.clipboard.writeText(text).catch(() => {});
+}
+
+function exportOccurrenceCSV(g) {
+  const events = [...g.events].sort((a, b) => a.ts - b.ts);
+  const header = ['#','Time','Device','UnitType','CommandID','Detail','SourceFile'];
+  const lines = [header.join(',')];
+  events.forEach((a, i) => {
+    lines.push([i + 1, fmtTs(a.ts), a.unitID || '', a.unitType || '', a.commandID || '', a.detail || '', a.src || ''].map(csvCell).join(','));
+  });
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const tag = `${g.code}_${g.subCode || 'none'}`.replace(/[^\w-]+/g, '_');
+  a.href = url; a.download = `alarm_${tag}_${Date.now()}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function renderChart(filtered, groups, topN) {
   const minTs = filtered.reduce((m, a) => Math.min(m, a.ts.getTime()), Infinity);
   const maxTs = filtered.reduce((m, a) => Math.max(m, a.ts.getTime()), -Infinity);
   const bucket = pickBucket(minTs, maxTs);
-  const step = bucketMs(bucket);
+  const step = BUCKET_MS[bucket] || 3600000;
   const start = floorToBucket(minTs, bucket);
-  const end = floorToBucket(maxTs, bucket);
+  const end   = floorToBucket(maxTs, bucket);
   const bucketKeys = [];
   for (let t = start; t <= end; t += step) bucketKeys.push(t);
   const labels = bucketKeys.map(t => fmtBucketLabel(t, bucket));
 
   const topGroups = [...groups].sort((a, b) => b.count - a.count).slice(0, topN);
-  const topKeys = new Set(topGroups.map(g => g.key));
-
-  // Build per-key time series (top N)
   const seriesMap = new Map();
   for (const g of topGroups) seriesMap.set(g.key, new Array(bucketKeys.length).fill(0));
   const othersSeries = new Array(bucketKeys.length).fill(0);
@@ -373,61 +752,44 @@ function renderChart(filtered, groups, topN) {
     const b = floorToBucket(a.ts.getTime(), bucket);
     const idx = Math.round((b - start) / step);
     if (idx < 0 || idx >= bucketKeys.length) continue;
-    if (seriesMap.has(key)) {
-      seriesMap.get(key)[idx]++;
-    } else {
-      othersSeries[idx]++;
-      hasOthers = true;
-    }
+    if (seriesMap.has(key)) seriesMap.get(key)[idx]++;
+    else { othersSeries[idx]++; hasOthers = true; }
   }
 
-  // Palette (color per series)
-  const palette = ['#5980a6','#b3402f','#2f7a4a','#8a6a12','#b35a1e','#7a5aa6','#2f8a9a','#a64a78','#5d7a2f','#2c455d','#7a7a7d','#8a4a2f'];
-  const datasets = [];
-  let ci = 0;
-  for (const g of topGroups) {
-    datasets.push({
-      label: `${g.code}${g.subCode ? '/' + g.subCode : ''}`,
-      data: seriesMap.get(g.key),
-      borderColor: palette[ci % palette.length],
-      backgroundColor: palette[ci % palette.length] + '33',
-      tension: 0.2,
-      pointRadius: 2.5,
-    });
-    ci++;
-  }
+  const palette = ['#5980a6','#b3402f','#2f7a4a','#8a6a12','#7a5aa6','#b35a1e','#2f8a9a','#a64a78','#5d7a2f','#2c455d'];
+  const datasets = topGroups.map((g, i) => ({
+    label: `${g.code}${g.subCode ? '/' + g.subCode : ''}`,
+    data: seriesMap.get(g.key),
+    borderColor: palette[i % palette.length],
+    backgroundColor: palette[i % palette.length] + '22',
+    borderWidth: 2, tension: 0.2, pointRadius: 2,
+  }));
   if (hasOthers) {
     datasets.push({
-      label: 'Others',
-      data: othersSeries,
-      borderColor: '#5d5d60',
-      backgroundColor: '#5d5d6033',
-      borderDash: [4, 4],
-      tension: 0.2,
-      pointRadius: 2,
+      label: 'Others', data: othersSeries,
+      borderColor: '#8a8a8d', backgroundColor: '#8a8a8d22',
+      borderWidth: 1.5, borderDash: [5, 4], tension: 0.2, pointRadius: 0,
     });
   }
 
-  if (chart) { chart.destroy(); chart = null; }
-  const ctx = document.getElementById('alarmChart').getContext('2d');
-  chart = new Chart(ctx, {
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('alarmChart').getContext('2d'), {
     type: 'line',
     data: { labels, datasets },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'nearest', intersect: false },
       plugins: {
-        legend: { labels: { color: '#1d1f20', font: { size: 13 } } },
-        title: { display: true, text: `時間桶: ${bucket} · ${bucketKeys.length} 個 bucket`, color: '#5d5d60', font: { size: 12 } },
-        tooltip: { titleFont: { size: 13 }, bodyFont: { size: 12 } },
+        legend: { position: 'top', align: 'start', labels: { color: '#1d1f20', font: { size: 12 }, boxWidth: 24 } },
+        tooltip: { titleFont: { size: 12 }, bodyFont: { size: 11 } },
       },
       scales: {
-        x: { ticks: { color: '#5d5d60', maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 20 }, grid: { color: '#d4d4d7' } },
-        y: { beginAtZero: true, ticks: { color: '#5d5d60', precision: 0 }, grid: { color: '#d4d4d7' } },
+        x: { ticks: { color: '#5d5d60', autoSkip: true, maxTicksLimit: 20 }, grid: { color: '#e0e0e3' } },
+        y: { beginAtZero: true, ticks: { color: '#5d5d60', precision: 0 }, grid: { color: '#e0e0e3' } },
       },
     },
   });
+  document.getElementById('chartCaption').textContent = `時間桶: ${bucket} · ${bucketKeys.length} 個 bucket · ${fmtTs(minTs)} → ${fmtTs(maxTs)}`;
   document.getElementById('chartCard').style.display = 'block';
 }
 

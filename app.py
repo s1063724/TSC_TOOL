@@ -33,6 +33,10 @@ SERVER_HOST = _cfg.get("server", "host", fallback="0.0.0.0")
 SERVER_PORT = _cfg.getint("server", "port", fallback=9000)
 
 app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=None)
+# Jinja2 defaults to caching compiled templates in production; enable auto-reload
+# so template edits show up without a service restart.
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.jinja_env.auto_reload = True
 
 
 def db():
@@ -120,6 +124,81 @@ def check_page():
 @app.route("/stats")
 def stats_page():
     return render_template("stats.html", active="stats")
+
+
+@app.route("/vehicle")
+def vehicle_page():
+    return render_template("vehicle.html", active="vehicle")
+
+
+# ---------- spec API (vehicle-log analysis) ----------
+
+@app.route("/api/specs", methods=["GET"])
+def list_specs():
+    conn = db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, `version`, label, source, is_default, "
+                "updated_at FROM spec_versions ORDER BY `version`"
+            )
+            rows = cur.fetchall()
+        for r in rows:
+            if r.get("updated_at"):
+                r["updated_at"] = r["updated_at"].isoformat()
+        return jsonify({"specs": rows})
+    finally:
+        conn.close()
+
+
+@app.route("/api/specs/<int:spec_id>/messages", methods=["GET"])
+def list_spec_messages(spec_id):
+    conn = db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT msg_id, description, direction, structure, "
+                "fields, raw_text FROM spec_messages WHERE spec_id = %s "
+                "ORDER BY msg_id",
+                (spec_id,),
+            )
+            rows = cur.fetchall()
+        import json as _json
+        out = {}
+        for r in rows:
+            r["fields"] = _json.loads(r["fields"]) if r["fields"] else []
+            out[r["msg_id"]] = r
+        return jsonify({"spec_id": spec_id, "messages": out})
+    finally:
+        conn.close()
+
+
+@app.route("/api/specs/<int:spec_id>/messages/<msg_id>", methods=["PUT"])
+def update_spec_message(spec_id, msg_id):
+    import json as _json
+    data = request.get_json(silent=True) or {}
+    fields = data.get("fields")
+    if fields is None or not isinstance(fields, list):
+        return jsonify({"error": "fields (list) is required"}), 400
+    conn = db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE spec_messages SET fields=%s WHERE spec_id=%s AND msg_id=%s",
+                (_json.dumps(fields, ensure_ascii=False), spec_id, msg_id),
+            )
+            if cur.rowcount == 0:
+                # insert if new
+                cur.execute(
+                    "INSERT INTO spec_messages (spec_id, msg_id, description, "
+                    "direction, structure, fields) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (spec_id, msg_id, data.get("description", ""),
+                     data.get("direction", ""), data.get("structure", ""),
+                     _json.dumps(fields, ensure_ascii=False)),
+                )
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
 
 
 # ---------- other static files (favicons, offline libs) ----------
